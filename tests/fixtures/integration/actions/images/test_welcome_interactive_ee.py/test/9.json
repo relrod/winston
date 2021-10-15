@@ -10,7 +10,7 @@
         "compared_fixture": false
     },
     "output": [
-        "  ANSIBLE-RUNNER:DEVEL (PRIMARY)                                               DESCRIPTION",
+        "  ANSIBLE-NAVIGATOR-DEMO-EE:0.6.0                                              DESCRIPTION",
         "0│Image information                                                            Information collected from image inspection",
         "1│General information                                                          OS and python version information",
         "2│Ansible version and collections                                              Information about ansible and ansible collections",

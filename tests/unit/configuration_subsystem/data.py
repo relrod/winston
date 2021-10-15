@@ -228,6 +228,8 @@ ENVVAR_DATA = [
     ("help_playbook", "false", False),
     ("inventory", "/tmp/test1.yaml,/tmp/test2.yml", ["/tmp/test1.yaml", "/tmp/test2.yml"]),
     ("inventory_column", "t1,t2,t3", ["t1", "t2", "t3"]),
+    ("lint_config", "/tmp/.ansible-lint", "/tmp/.ansible-lint"),
+    ("lintables", "/tmp/site.yaml", "/tmp/site.yaml"),
     ("log_append", "false", False),
     ("log_file", "/tmp/app.log", "/tmp/app.log"),
     ("log_level", "info", "info"),

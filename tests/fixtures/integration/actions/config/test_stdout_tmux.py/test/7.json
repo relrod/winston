@@ -13,8 +13,8 @@
         "[ERROR]: Command provided: 'config --help-config --ee False --ll debug --mode interactive'",
         "[ERROR]: --hc or --help-config is valid only when 'mode' argument is set to 'stdout'",
         " [HINT]: Try again with '-m stdout'",
-        "[ERROR]: Configuration failed, using default log file location: /home/user/github/ansible-navigator/ansible-navigator.log. Log level set to debug",
-        " [HINT]: Review the hints and log file to see what went wrong: /home/user/github/ansible-navigator/ansible-navigator.log",
-        "(venv) bash-5.0$"
+        "[ERROR]: Configuration failed, using default log file location: /ansible-navigator.log. Log level set to debug",
+        " [HINT]: Review the hints and log file to see what went wrong: /ansible-navigator.log",
+        "(py38) bash-5.1$"
     ]
 }
