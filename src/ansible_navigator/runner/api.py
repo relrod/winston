@@ -269,8 +269,28 @@ class CommandBaseRunner(BaseRunner):
         if self._wrap_sh:
             self._cmdline.insert(0, self._executable_cmd)
             self._runner_args["executable_cmd"] = "/bin/sh"
-            cmd_args = " ".join(shlex.quote(s) for s in self._cmdline)
-            self._runner_args["cmdline_args"] = ["-c", "exec 2>/dev/null; {0}".format(cmd_args)]
+
+            cmd_args = [
+                "-c",
+                "exec 2>/dev/null; {0}".format(" ".join(shlex.quote(x) for x in self._cmdline)),
+            ]
+
+            # Work around an ansible-runner bug that only affects
+            # stdout/subprocess mode...
+            if self._navigator_mode == "stdout":
+                # If we're in stdout mode ("subprocess" mode in runner speak),
+                # we have to do things differently.
+                #
+                # This works around a bug in Runner where arguments are not
+                # properly escaped/quoted, which otherwise leads to anything
+                # after the ; running on the host instead of in the container.
+                #
+                # Effectively, we make the entire thing be one argument,
+                # properly quoted.
+                cmd_args_str = " ".join(shlex.quote(x) for x in cmd_args)
+                cmd_args = [cmd_args_str]
+
+            self._runner_args["cmdline_args"] = cmd_args
         else:
             self._runner_args["executable_cmd"] = self._executable_cmd
             self._runner_args["cmdline_args"] = self._cmdline
