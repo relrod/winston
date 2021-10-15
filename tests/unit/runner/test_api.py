@@ -31,7 +31,10 @@ from ansible_navigator.runner import api
             "ansible-lint",
             ["lintable1", "lint\"able'2", "lint able3"],
             [
-                "-c 'exec 2>/dev/null; ansible-lint lintable1 '\"'\"'lint\"able'\"'\"'\"'\"'\"'\"'\"'\"'2'\"'\"' '\"'\"'lint able3'\"'\"''"
+                (
+                    "-c 'exec 2>/dev/null; ansible-lint lintable1 "
+                    "'\"'\"'lint\"able'\"'\"'\"'\"'\"'\"'\"'\"'2'\"'\"' '\"'\"'lint able3'\"'\"''"
+                )
             ],
             ["-c", "exec 2>/dev/null; ansible-lint lintable1 'lint\"able'\"'\"'2' 'lint able3'"],
         ),

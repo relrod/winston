@@ -19,7 +19,7 @@ class Step:
         self,
         name: str,
         tipe: str,
-        value: List[Dict[str, str]],
+        value: List[Any],
         columns: Union[List[str], None] = None,
         index: Union[int, None] = None,
         select_func: Union[Callable[[], "Step"], None] = None,

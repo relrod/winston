@@ -270,7 +270,7 @@ class NavigatorPostProcessor:
                     if entry.cli_parameters:
                         exit_msg = (
                             "The value of execution-environment.volume-mounts"
-                            + "should be list of dictionaries"
+                            + " should be list of dictionaries"
                             + " and valid keys are 'src', 'dest' and 'label'."
                         )
                         exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
@@ -440,6 +440,17 @@ class NavigatorPostProcessor:
             entry.value.current = flatten_list(entry.value.current)
         return messages, exit_messages
 
+    @staticmethod
+    @_post_processor
+    def lintables(entry: Entry, config: ApplicationConfiguration) -> PostProcessorReturn:
+        # pylint: disable=unused-argument
+        """Post process lintables"""
+        messages: List[LogMessage] = []
+        exit_messages: List[ExitMessage] = []
+        if isinstance(entry.value.current, str):
+            entry.value.current = abs_user_path(entry.value.current)
+        return messages, exit_messages
+
     @_post_processor
     def log_append(self, entry: Entry, config: ApplicationConfiguration) -> PostProcessorReturn:
         """Post process log_append"""
@@ -598,7 +609,7 @@ class NavigatorPostProcessor:
     @_post_processor
     def playbook(entry: Entry, config: ApplicationConfiguration) -> PostProcessorReturn:
         # pylint: disable=unused-argument
-        """Post process pass_environment_variable"""
+        """Post process playbook"""
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
         if config.app == "run" and entry.value.current is C.NOT_SET:
