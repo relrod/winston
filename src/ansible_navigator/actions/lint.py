@@ -104,7 +104,7 @@ class LintResult:
         # parse them out.
         msg_split = issue["check_name"].split("] ", 1)
         # admonition = msg_split[0][1:]  # take off the beginning [
-        msg = msg_split[1]
+        msg = msg_split[1].capitalize()
 
         return LintResult(
             raw=issue,
@@ -255,7 +255,11 @@ class Action(App):
         kwargs["cmdline"] = cmd_args
 
         runner = CommandRunner(executable_cmd=ansible_lint_path, **kwargs)
-        return runner.run()
+        out, err, rc = runner.run()
+        self._logger.debug(f"ansible-lint rc: {rc}")
+        self._logger.debug(f"ansible-lint stdout: {out}")
+        self._logger.debug(f"ansible-lint stderr: {err}")
+        return (out, err, rc)
 
     def run_stdout(self) -> int:
         """Run in oldschool mode, just stdout."""

@@ -132,7 +132,7 @@ navigator_subcommds = [
     ),
     SubCommand(
         name="lint",
-        description="Lint a file or directory for common errors and issues",
+        description="Lint a file or directory for common errors and issues (experimental)",
         epilog=(
             "Note: Defaults to the current working directory."
             " If using an execution environment, ansible-lint must be installed"
@@ -346,7 +346,7 @@ NavigatorConfiguration = ApplicationConfiguration(
             short_description="Path to files on which to run ansible-lint",
             settings_file_path_override="ansible-lint.lintables",
             subcommands=["lint"],
-            value=EntryValue(),
+            value=EntryValue(default='.'),
         ),
         Entry(
             name="log_append",
