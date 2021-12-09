@@ -53,6 +53,9 @@ class NavigatorPostProcessor:
     # pylint:disable=too-many-public-methods
     """application post processor"""
 
+    def __init__(self):
+        self.extra_volume_mounts = []
+
     @staticmethod
     def _true_or_false(entry: Entry, config: ApplicationConfiguration) -> PostProcessorReturn:
         # pylint: disable=unused-argument
@@ -223,10 +226,9 @@ class NavigatorPostProcessor:
             entry.value.current = f"{entry.value.current}:latest"
         return messages, exit_messages
 
-    @staticmethod
     @_post_processor
     def execution_environment_volume_mounts(
-        entry: Entry, config: ApplicationConfiguration
+        self, entry: Entry, config: ApplicationConfiguration
     ) -> PostProcessorReturn:
         # pylint: disable=unused-argument
         """Post process set_environment_variable"""
@@ -259,7 +261,7 @@ class NavigatorPostProcessor:
 
         elif entry.value.current is not C.NOT_SET:
             parsed_volume_mounts = []
-            volume_mounts = to_list(entry.value.current)
+            volume_mounts = to_list(entry.value.current) + self.extra_volume_mounts
             for mount_obj in volume_mounts:
                 if not isinstance(mount_obj, dict):
                     exit_msg = (
@@ -440,9 +442,8 @@ class NavigatorPostProcessor:
             entry.value.current = flatten_list(entry.value.current)
         return messages, exit_messages
 
-    @staticmethod
     @_post_processor
-    def lintables(entry: Entry, config: ApplicationConfiguration) -> PostProcessorReturn:
+    def lintables(self, entry: Entry, config: ApplicationConfiguration) -> PostProcessorReturn:
         # pylint: disable=unused-argument
         """Post process lintables"""
         messages: List[LogMessage] = []
@@ -465,6 +466,12 @@ class NavigatorPostProcessor:
 
         if isinstance(entry.value.current, str):
             entry.value.current = abs_user_path(entry.value.current)
+
+        # Only hack in extra volume mounts if we're really going to use them.
+        if config.app == "lint":
+            mount = f"{entry.value.current}:{entry.value.current}"
+            self.extra_volume_mounts.append(mount)
+
         return messages, exit_messages
 
     @_post_processor

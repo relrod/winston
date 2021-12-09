@@ -127,6 +127,7 @@ class BaseRunner:
                 "finished_callback": self.runner_finished_callback,
                 "artifacts_handler": self.runner_artifacts_handler,
                 "timeout": self._timeout,
+                "runner_mode": "subprocess",
             }
         )
         if self._rotate_artifacts is not None:
@@ -234,7 +235,7 @@ class CommandBaseRunner(BaseRunner):
         cmdline: Optional[List] = None,
         playbook: Optional[str] = None,
         inventory: Optional[List] = None,
-        wrap_sh: Optional[bool] = False,
+        stdout_to_artifact: Optional[str] = None,
         **kwargs
     ):
         """Base class to handle common arguments of ``run_command`` interface for ``ansible-runner``
@@ -244,18 +245,14 @@ class CommandBaseRunner(BaseRunner):
                                         Defaults to None.
             playbook ([str], optional): The playbook file name to run. Defaults to None.
             inventory ([list], optional): List of path to the inventory files. Defaults to None.
-            wrap_sh ([bool], optional): Wrap the command with `sh -c`, disregarding stderr output.
-                                        Runner will pass --tty in almost all (default) cases. When
-                                        that flag is given, docker and podman will combine the
-                                        process's stdout and stderr into just stdout. Wrapping the
-                                        command with sh allows us to disregard the stderr output
-                                        when we only care about stdout.
+            stdout_to_artifact ([str], optional): Wrap the command with `sh -c`, and output its
+                                                  stdout to this filename in the artifact dir.
         """
         self._executable_cmd = executable_cmd
         self._cmdline: List[str] = cmdline if isinstance(cmdline, list) else []
         self._playbook = playbook
         self._inventory: List[str] = inventory if isinstance(inventory, list) else []
-        self._wrap_sh = wrap_sh
+        self._stdout_to_artifact = stdout_to_artifact
         super().__init__(**kwargs)
 
     def generate_run_command_args(self) -> None:
@@ -266,30 +263,18 @@ class CommandBaseRunner(BaseRunner):
         for inv in self._inventory:
             self._cmdline.extend(["-i", inv])
 
-        if self._wrap_sh:
+        if self._stdout_to_artifact:
             self._cmdline.insert(0, self._executable_cmd)
             self._runner_args["executable_cmd"] = "/bin/sh"
 
+            artifact_path = os.path.join("$AWX_ISOLATED_DATA_DIR", self._stdout_to_artifact)
+
             cmd_args = [
                 "-c",
-                "exec 2>/dev/null; {0}".format(" ".join(shlex.quote(x) for x in self._cmdline)),
+                "exec 1>{0}; {1}".format(
+                    artifact_path,
+                    " ".join(shlex.quote(x) for x in self._cmdline)),
             ]
-
-            # Work around an ansible-runner bug that only affects
-            # stdout/subprocess mode...
-            if self._navigator_mode == "stdout":
-                # If we're in stdout mode ("subprocess" mode in runner speak),
-                # we have to do things differently.
-                #
-                # This works around a bug in Runner where arguments are not
-                # properly escaped/quoted, which otherwise leads to anything
-                # after the ; running on the host instead of in the container.
-                #
-                # Effectively, we make the entire thing be one argument,
-                # properly quoted.
-                cmd_args_str = " ".join(shlex.quote(x) for x in cmd_args)
-                cmd_args = [cmd_args_str]
-
             self._runner_args["cmdline_args"] = cmd_args
         else:
             self._runner_args["executable_cmd"] = self._executable_cmd

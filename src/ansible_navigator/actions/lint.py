@@ -206,7 +206,6 @@ class Action(App):
             "rotate_artifacts": self._args.ansible_runner_rotate_artifacts_count,
             "timeout": self._args.ansible_runner_timeout,
             "host_cwd": os.getcwd(),
-            "wrap_sh": True,
         }
 
         if isinstance(self._args.execution_environment_volume_mounts, list):
@@ -217,7 +216,7 @@ class Action(App):
         if isinstance(self._args.container_options, list):
             kwargs.update({"container_options": self._args.container_options})
 
-        cmd_args = []
+        cmd_args = ["--offline"]
 
         if self._args.mode == "interactive":
             cmd_args += [
@@ -240,7 +239,7 @@ class Action(App):
                     "The given path `{0}` does not exist.".format(self._args.lintables)
                 )
             # lint acts weirdly if we're not in the right directory.
-            kwargs["container_workdir"] = self._args.lintables
+            #kwargs["container_workdir"] = self._args.lintables
             cmd_args.append(self._args.lintables)
 
             # TODO: Is there a better way to do this auto-mounting? I bet there
@@ -254,8 +253,23 @@ class Action(App):
 
         kwargs["cmdline"] = cmd_args
 
+        # Lastly -- we want to get stdout of lint (in interactive mode) and disregard
+        # warnings. Runner, and in some cases podman/docker, will both munge stdout and
+        # stderr into stdout. So we need to work around that. Here we redirect stdout
+        # to a file that lives in the artifact directory, if we're in interactive mode.
+        # In stdout mode, we can show everything as-is.
+        #if self._args.mode == "interactive":
+        #    kwargs["stdout_to_artifact"] = "ansible-lint.out"
+
         runner = CommandRunner(executable_cmd=ansible_lint_path, **kwargs)
         out, err, rc = runner.run()
+
+        # If we set stdout_to_artifact above, then 'out' will now be empty after running
+        # ansible-lint. So let's get our real stdout data.
+        #if self._args.mode == "interactive":
+        #    with open(os.path.join(runner._runner_artifact_dir, 'ansible-lint.out'), 'r') as f:
+        #        out = f.read()
+
         self._logger.debug(f"ansible-lint rc: {rc}")
         self._logger.debug(f"ansible-lint stdout: {out}")
         self._logger.debug(f"ansible-lint stderr: {err}")
