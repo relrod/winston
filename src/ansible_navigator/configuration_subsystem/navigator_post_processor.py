@@ -505,7 +505,7 @@ class NavigatorPostProcessor:
                 exit_msg = f"{settings_entry} entries could not be parsed."
                 exit_messages.append(ExitMessage(message=exit_msg))
                 exit_msg = hint
-                exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))                
+                exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
 
         exit_msg = (
             "The volume mount source path '{fs_source}', configured with '{settings_entry}'"
