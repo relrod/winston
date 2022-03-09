@@ -86,7 +86,7 @@ class VolumeMount:
     """The source file system path of the volume mount"""
     fs_destination: str
     """The destination file system path in the container for the volume mount"""
-    options: List[VolumeMountOption]
+    options: Set[VolumeMountOption]
     """Options for the bind mount"""
 
     settings_entry: str
@@ -127,30 +127,7 @@ class VolumeMount:
         return cls(
             fs_source=fs_source,
             fs_destination=fs_destination,
-            options=cls._option_list_from_comma_string(options),
-            settings_entry=settings_entry,
-            source=source,
-        )
-
-    @classmethod
-    def from_dictionary(
-        cls: Type[V],
-        settings_entry: str,
-        source: C,
-        dictionary: Dict[str, str],
-    ) -> V:
-        """Create a ``VolumeMount`` from a dictionary.
-
-        :param dictionary: The dictionary from which the volume mount will be created
-        :param settings_entry: The settings entry
-        :param source: The source of the string
-        :returns: A populated volume mount
-        """
-        options = dictionary.get("label", "")
-        return cls(
-            fs_source=dictionary["src"],
-            fs_destination=dictionary["dest"],
-            options=cls._option_list_from_comma_string(options),
+            options=cls.option_list_from_comma_string(options),
             settings_entry=settings_entry,
             source=source,
         )
@@ -165,7 +142,7 @@ class VolumeMount:
         :param options: The comma delimited string
         :raises ValueError: When an option is not recognized
         """
-        out = set()
+        out: Set[VolumeMountOption] = set()
         if not options:
             return out
         values_to_consts = {k.value: k for k in VolumeMountOption}
@@ -452,12 +429,10 @@ class NavigatorPostProcessor:
             mount_strings = flatten_list(entry.value.current)
             for mount_str in mount_strings:
                 try:
-                    volume_mounts.append(
-                        VolumeMount.from_string(
-                            settings_entry=settings_entry,
-                            source=entry.value.source,
-                            string=mount_str,
-                        ),
+                    volmount = VolumeMount.from_string(
+                        settings_entry=settings_entry,
+                        source=entry.value.source,
+                        string=mount_str,
                     )
                 except ValueError as exc:
                     exit_msg = (
@@ -466,49 +441,70 @@ class NavigatorPostProcessor:
                     )
                     exit_messages.append(ExitMessage(message=exit_msg))
                     if entry.cli_parameters:
+                        valid_options = oxfordcomma(
+                            [o.value for o in VolumeMountOption],
+                            "and/or",
+                        )
                         exit_msg = (
                             f"Try again with format {entry.cli_parameters.short}"
-                            " <source-path>:<destination-path>:<label(Z or z)>'."
-                            " Note: label is optional."
+                            f" <source-path>:<destination-path>:<options ({valid_options})>'."
+                            " Note: the 'options' field may be excluded."
                         )
                         exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
-
+                else:
+                    volume_mounts.append(volmount)
         elif entry.value.source is C.USER_CFG:
             hint = (
                 "The value of execution-environment.volume-mounts should be a list"
-                " of dictionaries and valid keys are 'src', 'dest' and 'label'."
+                " of dictionaries which all have only the keys: 'src', 'dest', and 'label'."
             )
             if isinstance(entry.value.current, list):
                 for list_entry in entry.value.current:
-                    try:
+                    valid = True
+                    key_variations = [("dest", "src"), ("dest", "label", "src")]
+                    extra_detail = ""
+
+                    if not isinstance(list_entry, dict):
                         # Ensure it is a dictionary
-                        if not isinstance(list_entry, dict):
-                            raise ValueError
-
+                        valid = False
+                    elif tuple(sorted(list_entry.keys())) not in key_variations:
                         # Ensure only required and optional keys are present
-                        key_variations = [["dest", "src"], ["dest", "label", "src"]]
-                        if sorted(list_entry.keys()) not in key_variations:
-                            raise ValueError
-
+                        valid = False
+                    elif not all(isinstance(value, str) for value in list_entry.values()):
                         # Ensure all values are a string
-                        if not all(isinstance(value, str) for value in list_entry.values()):
-                            raise ValueError
+                        valid = False
+                        extra_detail = "all values in the dictionary must be strings"
+                    else:
+                        # TODO: deprecate 'label' and replace with 'options'
+                        options = list_entry.get("label") or ""
+                        try:
+                            options_parsed = VolumeMount.option_list_from_comma_string(options)
+                        except ValueError as e:
+                            valid = False
+                            extra_detail = str(e)
 
-                        volume_mounts.append(
-                            VolumeMount.from_dictionary(
-                                dictionary=list_entry,
-                                settings_entry=settings_entry,
-                                source=entry.value.source,
-                            ),
-                        )
-                    except ValueError as exc:
+                    if not valid:
                         exit_msg = (
                             f"The following {settings_entry} entry could not be parsed:"
-                            f" {list_entry} ({entry.value.source.value}), {str(exc)}"
+                            f" {list_entry} ({entry.value.source.value})"
                         )
+                        if extra_detail:
+                            exit_msg += f", {extra_detail}"
                         exit_messages.append(ExitMessage(message=exit_msg))
                         exit_msg = hint
                         exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
+                        continue
+
+                    src = list_entry.get("src")
+                    dest = list_entry.get("dest")
+                    volmount = VolumeMount(
+                        fs_source=src,
+                        fs_destination=dest,
+                        options=options_parsed,
+                        settings_entry=settings_entry,
+                        source=entry.value.source,
+                    )
+                    volume_mounts.append(volmount)
             else:
                 exit_msg = f"{settings_entry} entries could not be parsed."
                 exit_messages.append(ExitMessage(message=exit_msg))
@@ -524,6 +520,7 @@ class NavigatorPostProcessor:
         for mount in volume_mounts:
             if not mount.exists():
                 exit_messages.append(ExitMessage(message=exit_msg.format(**asdict(mount))))
+                continue
             new_mounts.append(mount.to_string())
 
         # Check extra mounts next
@@ -531,6 +528,7 @@ class NavigatorPostProcessor:
         for mount in self.extra_volume_mounts:
             if not mount.exists():
                 exit_messages.append(ExitMessage(message=exit_msg.format(**asdict(mount))))
+                continue
             extra_mounts.append(mount.to_string())
 
         # Get out fast if we had any errors
@@ -546,7 +544,7 @@ class NavigatorPostProcessor:
         if extra_mounts:
             if not isinstance(entry.value.current, list):
                 entry.value.current = []
-            entry.value.current.extend(exit_messages)
+            entry.value.current.extend(extra_mounts)
 
         return messages, exit_messages
 

@@ -58,7 +58,7 @@ test_data = (
     TestData(
         current=[["/tmp:/tmp:Y"]],
         source=C.USER_CLI,
-        exit_message_substr="Unrecognized label: Y",
+        exit_message_substr="Invalid volume mount option: Y",
     ),
     TestData(
         current=[["/tmp:/tmp:Z,z"]],
@@ -68,7 +68,7 @@ test_data = (
     TestData(
         current=[["/tmp:/tmp:Z,Y"]],
         source=C.USER_CLI,
-        exit_message_substr="Unrecognized label: Y",
+        exit_message_substr="Invalid volume mount option: Y",
     ),
     TestData(
         current=["/tmp:/tmp"],
@@ -93,7 +93,7 @@ test_data = (
     TestData(
         current=["/tmp:/tmp:Z,y", "/tmp:/tmp"],
         source=C.ENVIRONMENT_VARIABLE,
-        exit_message_substr="Unrecognized label: y",
+        exit_message_substr="Invalid volume mount option: y",
     ),
     TestData(current=True, source=C.USER_CFG, exit_message_substr="could not be parsed"),
     TestData(
@@ -119,12 +119,12 @@ test_data = (
     TestData(
         current=[{"src": "/tmp", "dest": "/tmp", "label": "Z,y"}],
         source=C.USER_CFG,
-        exit_message_substr="Unrecognized label: y",
+        exit_message_substr="Invalid volume mount option: y",
     ),
     TestData(
         current=[[r"C:\WINNT\System32:/tmp"]],
         source=C.USER_CLI,
-        exit_message_substr="Unrecognized label: /tmp",
+        exit_message_substr="Invalid volume mount option: /tmp",
     ),
     TestData(
         current=[[r"/WINNT/System32:/tmp"]],
