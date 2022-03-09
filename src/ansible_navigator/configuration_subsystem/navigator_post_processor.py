@@ -18,6 +18,7 @@ from typing import List
 from typing import Tuple
 from typing import Type
 from typing import TypeVar
+from typing import Set
 
 from ..utils.functions import ExitMessage
 from ..utils.functions import ExitPrefix
@@ -155,18 +156,25 @@ class VolumeMount:
         )
 
     @staticmethod
-    def _option_list_from_comma_string(options: str) -> List[VolumeMountOption]:
-        """Build a list of options from a comma delimited string.
+    def option_list_from_comma_string(options: str) -> Set[VolumeMountOption]:
+        """Build a set of volume mount options from a comma delimited string.
+
+        Goes by the value side of the VolumeMountOption enum, in case more
+        verbose names are used in the future as constants.
 
         :param options: The comma delimited string
         :raises ValueError: When an option is not recognized
         """
-        if options == "":
-            return []
-        try:
-            return [getattr(VolumeMountOption, option) for option in options.split(",")]
-        except AttributeError as exc:
-            raise ValueError(f"Unrecognized label: {str(exc)}") from exc
+        out = set()
+        if not options:
+            return out
+        values_to_consts = {k.value: k for k in VolumeMountOption}
+        for option in options.split(","):
+            const = values_to_consts.get(option)
+            if const is None:
+                raise ValueError(f"Invalid volume mount option: {option}")
+            out.add(const)
+        return out
 
 
 class Mode(Enum):

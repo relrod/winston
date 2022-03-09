@@ -12,6 +12,25 @@ from ansible_navigator.configuration_subsystem.navigator_post_processor import (
 
 
 @pytest.mark.parametrize(
+    ("inp", "expected"),
+    (
+        ("", set()),
+        ("Z", {VolumeMountOption.Z}),
+        ("Z,z", {VolumeMountOption.Z, VolumeMountOption.z}),
+        ("Z,z,Z", {VolumeMountOption.Z, VolumeMountOption.z}),
+    ),
+    ids=(
+        "empty",
+        "singleton",
+        "pair",
+        "repeated element",
+    ),
+)
+def test_option_list_from_comma_string(inp, expected):
+    assert VolumeMount.option_list_from_comma_string(inp) == expected
+
+
+@pytest.mark.parametrize(
     ("volmount", "expected"),
     (
         (
