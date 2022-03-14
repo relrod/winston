@@ -13,6 +13,7 @@ from typing import Tuple
 from ..action_base import ActionBase
 from ..app_public import AppPublic
 from ..configuration_subsystem import ApplicationConfiguration
+from ..configuration_subsystem.navigator_settings import NavigatorSettings
 from ..image_manager import inspect_all
 from ..runner import Command
 from ..steps import Step
@@ -50,7 +51,7 @@ class Action(ActionBase):
 
     KEGEX = r"^im(?:ages)?(\s(?P<params>.*))?$"
 
-    def __init__(self, args: ApplicationConfiguration):
+    def __init__(self, args: ApplicationConfiguration[NavigatorSettings]):
         """Initialize the ``:images`` action.
 
         :param args: The current settings for the application
@@ -77,14 +78,14 @@ class Action(ActionBase):
         if "__full_name" in entry:
             if entry.get("execution_environment") is False:
                 return 8, 0
-            if entry["__full_name"] == self._args.execution_environment_image:
+            if entry["__full_name"] == self._args.entries.execution_environment_image.current:
                 return 12, 0
             return 2, 0
 
         if self._images.selected:
             if self._images.selected["execution_environment"] is False:
                 return 8, 0
-            if self._images.selected["__full_name"] == self._args.execution_environment_image:
+            if self._images.selected["__full_name"] == self._args.entries.execution_environment_image.current:
                 return 12, 0
         return 2, 0
 
@@ -106,7 +107,7 @@ class Action(ActionBase):
 
         color = 2
         if self._images.selected:
-            if self._images.selected["__full_name"] == self._args.execution_environment_image:
+            if self._images.selected["__full_name"] == self._args.entries.execution_environment_image.current:
                 color = 4
             elif self._images.selected["execution_environment"] is False:
                 color = 8
@@ -354,7 +355,7 @@ class Action(ActionBase):
 
     def _collect_image_list(self):
         """Build a list of images for the images menu."""
-        images, error = inspect_all(container_engine=self._args.container_engine)
+        images, error = inspect_all(container_engine=self._args.entries.container_engine.current)
         if error or not images:
             self._logger.error(error)
             return
@@ -365,7 +366,7 @@ class Action(ActionBase):
             image["__name_tag"] = f"{image['name']}:{image['tag']}"
             image["__full_name"] = f"{image['repository']}:{image['tag']}"
             image["__name"] = image["name"]
-            if image["__full_name"] == self._args.execution_environment_image:
+            if image["__full_name"] == self._args.entries.execution_environment_image.current:
                 image["__name"] += " (primary)"
                 image["__name_tag"] += " (primary)"
 
@@ -393,15 +394,15 @@ class Action(ActionBase):
 
         kwargs = {
             "cmdline": [f"{share_directory}/utils/image_introspect.py"],
-            "container_engine": self._args.container_engine,
+            "container_engine": self._args.entries.container_engine.current,
             "container_volume_mounts": container_volume_mounts,
             "execution_environment_image": self._images.selected["__full_name"],
             "execution_environment": True,
             "navigator_mode": "interactive",
         }
 
-        if isinstance(self._args.container_options, list):
-            kwargs.update({"container_options": self._args.container_options})
+        if isinstance(self._args.entries.container_options.current, list):
+            kwargs.update({"container_options": self._args.entries.container_options.current})
 
         self._logger.debug(
             f"Invoke runner with executable_cmd: {python_exec_path}" + f" and kwargs: {kwargs}",

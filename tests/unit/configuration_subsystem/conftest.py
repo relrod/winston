@@ -31,7 +31,7 @@ class GenerateConfigResponse(NamedTuple):
 
     messages: List[LogMessage]
     exit_messages: List[ExitMessage]
-    application_configuration: ApplicationConfiguration
+    application_configuration: ApplicationConfiguration[NavigatorSettings]
     settings_contents: Dict
 
 

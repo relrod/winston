@@ -116,7 +116,7 @@ def test_editor_command_default(_mf1, monkeypatch):
     args.internals.initializing = True
     _messages, exit_msgs = parse_and_update(params=[], args=args)
     assert not exit_msgs
-    assert args.editor_command == "vi +{line_number} {filename}"
+    assert args.entries.editor_command.current == "vi +{line_number} {filename}"
 
 
 def id_for_hint_test(value):

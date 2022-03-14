@@ -11,6 +11,7 @@ from typing import Union
 from ..action_base import ActionBase
 from ..action_defs import RunStdoutReturn
 from ..configuration_subsystem import ApplicationConfiguration
+from ..configuration_subsystem.navigator_settings import NavigatorSettings
 from ..configuration_subsystem.definitions import Constants
 from ..runner import Command
 from . import _actions as actions
@@ -62,7 +63,7 @@ class Action(ActionBase):
 
     KEGEX = "^e(?:xec)?$"
 
-    def __init__(self, args: ApplicationConfiguration):
+    def __init__(self, args: ApplicationConfiguration[NavigatorSettings]):
         """Initialize the ``:exec`` action.
 
         :param args: The current settings for the application
@@ -89,9 +90,9 @@ class Action(ActionBase):
 
         :returns: The stdout, stderr and return code from runner
         """
-        if isinstance(self._args.set_environment_variable, dict):
-            env_vars_to_set = self._args.set_environment_variable.copy()
-        elif isinstance(self._args.set_environment_variable, Constants):
+        if isinstance(self._args.entries.set_environment_variable.current, dict):
+            env_vars_to_set = self._args.entries.set_environment_variable.current.copy()
+        elif isinstance(self._args.entries.set_environment_variable.current, Constants):
             env_vars_to_set = {}
         else:
             log_message = (
@@ -101,34 +102,34 @@ class Action(ActionBase):
             self._logger.error(
                 "%s The current value was found to be '%s'",
                 log_message,
-                self._args.set_environment_variable,
+                self._args.entries.set_environment_variable.current,
             )
             env_vars_to_set = {}
 
-        if self._args.display_color is False:
+        if self._args.entries.display_color.current is False:
             env_vars_to_set["ANSIBLE_NOCOLOR"] = "1"
 
         kwargs = {
-            "container_engine": self._args.container_engine,
+            "container_engine": self._args.entries.container_engine.current,
             "host_cwd": os.getcwd(),
-            "execution_environment_image": self._args.execution_environment_image,
-            "execution_environment": self._args.execution_environment,
-            "navigator_mode": self._args.mode,
-            "pass_environment_variable": self._args.pass_environment_variable,
+            "execution_environment_image": self._args.entries.execution_environment_image.current,
+            "execution_environment": self._args.entries.execution_environment.current,
+            "navigator_mode": self._args.entries.mode.current,
+            "pass_environment_variable": self._args.entries.pass_environment_variable.current,
             "set_environment_variable": env_vars_to_set,
-            "timeout": self._args.ansible_runner_timeout,
+            "timeout": self._args.entries.ansible_runner_timeout.current,
         }
 
-        if isinstance(self._args.execution_environment_volume_mounts, list):
-            kwargs["container_volume_mounts"] = self._args.execution_environment_volume_mounts
+        if isinstance(self._args.entries.execution_environment_volume_mounts.current, list):
+            kwargs["container_volume_mounts"] = self._args.entries.execution_environment_volume_mounts.current
 
-        if isinstance(self._args.container_options, list):
-            kwargs["container_options"] = self._args.container_options
+        if isinstance(self._args.entries.container_options.current, list):
+            kwargs["container_options"] = self._args.entries.container_options.current
 
         command, pass_through_args = _generate_command(
-            exec_command=self._args.exec_command,
-            exec_shell=self._args.exec_shell,
-            extra_args=self._args.cmdline,
+            exec_command=self._args.entries.exec_command.current,
+            exec_shell=self._args.entries.exec_shell.current,
+            extra_args=self._args.entries.cmdline.current,
         )
         if isinstance(pass_through_args, list):
             kwargs["cmdline"] = pass_through_args

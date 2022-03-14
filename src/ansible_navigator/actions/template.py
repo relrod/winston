@@ -10,6 +10,7 @@ from typing import Optional
 from ..action_base import ActionBase
 from ..app_public import AppPublic
 from ..configuration_subsystem import ApplicationConfiguration
+from ..configuration_subsystem.navigator_settings import NavigatorSettings
 from ..ui_framework import Interaction
 from ..ui_framework import warning_notification
 from ..utils.functions import remove_dbl_un
@@ -23,7 +24,7 @@ class Action(ActionBase):
 
     KEGEX = r"^{{.*}}$"
 
-    def __init__(self, args: ApplicationConfiguration):
+    def __init__(self, args: ApplicationConfiguration[NavigatorSettings]):
         """Initialize the template action.
 
         :param args: The current settings for the application

@@ -10,8 +10,10 @@ from functools import partialmethod
 from itertools import chain
 from itertools import repeat
 from pathlib import Path
+from typing import Dict
 from typing import List
 from typing import Tuple
+from typing import Union
 
 from ..utils.functions import ExitMessage
 from ..utils.functions import ExitPrefix
@@ -30,7 +32,7 @@ from .definitions import ModeChangeRequest
 from .definitions import SettingsEntry
 from .definitions import VolumeMount
 from .definitions import VolumeMountError
-
+from .navigator_settings import NavigatorSettings
 
 def _post_processor(func):
     def wrapper(*args, **kwargs):
@@ -70,8 +72,8 @@ class NavigatorPostProcessor:
 
     @staticmethod
     def _true_or_false(
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[Union[str,bool]],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         # pylint: disable=unused-argument
         messages: List[LogMessage] = []
@@ -87,28 +89,28 @@ class NavigatorPostProcessor:
     @staticmethod
     @_post_processor
     def ansible_runner_artifact_dir(
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[str],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         # pylint: disable=unused-argument
         """Post process ansible_runner_artifact_dir path"""
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
-        if entry.value.current is not C.NOT_SET:
+        if not isinstance(entry.value.current, C):
             entry.value.current = abs_user_path(entry.value.current)
         return messages, exit_messages
 
     @staticmethod
     @_post_processor
     def ansible_runner_rotate_artifacts_count(
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[int],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         # pylint: disable=unused-argument
         """Post process ansible_runner_rotate_artifacts_count"""
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
-        if entry.value.current is not C.NOT_SET:
+        if not isinstance(entry.value.current, C):
             try:
                 entry.value.current = int(entry.value.current)
             except ValueError as exc:
@@ -119,14 +121,14 @@ class NavigatorPostProcessor:
     @staticmethod
     @_post_processor
     def ansible_runner_timeout(
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[int],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         # pylint: disable=unused-argument
         """Post process ansible_runner_timeout"""
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
-        if entry.value.current is not C.NOT_SET:
+        if not isinstance(entry.value.current, C):
             try:
                 entry.value.current = int(entry.value.current)
             except ValueError as exc:
@@ -137,19 +139,20 @@ class NavigatorPostProcessor:
     @staticmethod
     @_post_processor
     def collection_doc_cache_path(
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[str],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         # pylint: disable=unused-argument
         """Post process collection doc cache path"""
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
-        entry.value.current = abs_user_path(entry.value.current)
+        if isinstance(entry.value.current, str):
+            entry.value.current = abs_user_path(entry.value.current)
         return messages, exit_messages
 
     @staticmethod
     @_post_processor
-    def cmdline(entry: SettingsEntry, config: ApplicationConfiguration) -> PostProcessorReturn:
+    def cmdline(entry: SettingsEntry[Union[str, List[str]]], config: ApplicationConfiguration[NavigatorSettings]) -> PostProcessorReturn:
         # pylint: disable=unused-argument
         """Post process cmdline"""
         messages: List[LogMessage] = []
@@ -161,8 +164,8 @@ class NavigatorPostProcessor:
     @staticmethod
     @_post_processor
     def container_engine(
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+            entry: SettingsEntry[Union[bool, str]],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         # pylint: disable=unused-argument
         """Post process container_engine"""
@@ -180,8 +183,8 @@ class NavigatorPostProcessor:
     @_post_processor
     def display_color(
         self,
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[Union[str, bool]],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         """Post process display_color"""
         messages: List[LogMessage] = []
@@ -196,45 +199,46 @@ class NavigatorPostProcessor:
     @_post_processor
     def editor_console(
         self,
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[Union[str, bool]],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         """Post process editor_console"""
         return self._true_or_false(entry, config)
 
     @_post_processor
-    def execution_environment(self, entry: SettingsEntry, config) -> PostProcessorReturn:
+    def execution_environment(self, entry: SettingsEntry[Union[str, bool]], config) -> PostProcessorReturn:
         # pylint: disable=too-many-branches
         # pylint: disable=too-many-locals
         """Post process execution_environment"""
         messages, exit_messages = self._true_or_false(entry, config)
+        engine = config.entries.container_engine.current
         if entry.value.current is True:
             exit_msg = ""
-            if config.container_engine == "auto":
+            if engine == "auto":
                 exit_msg = "No container engine could be found:"
             else:
-                container_engine_location = shutil.which(config.container_engine)
+                container_engine_location = shutil.which(engine)
                 if container_engine_location is None:
                     exit_msg = "The specified container engine could not be found:"
             if exit_msg:
-                exit_msg += f" '{config.container_engine}',"
-                exit_msg += f" set by '{config.entry('container_engine').value.source.value}'"
+                exit_msg += f" '{engine}',"
+                exit_msg += f" set by '{config.entries.container_engine.value.source.value}'"
                 exit_messages.append(ExitMessage(message=exit_msg))
-                ce_short = config.entry("container_engine").cli_parameters.short
+                ce_short = config.entries.container_engine.cli_parameters.short
                 if isinstance(entry.cli_parameters, CliParameters):
                     entry_short = entry.cli_parameters.short
                 else:
                     entry_short = None
-                choices = config.entry("container_engine").choices
+                choices = config.entries.container_engine.choices
                 if ce_short and entry_short:
                     hint = ""
-                    if config.container_engine == "auto":
+                    if engine == "auto":
                         ce_choices = filter(lambda x: x != "auto", choices)
                         hint = f"Try installing {oxfordcomma(ce_choices, 'or')}"
-                    elif config.container_engine in choices:
-                        alternatives = filter(lambda x: x != config.container_engine, choices)
+                    elif engine in choices:
+                        alternatives = filter(lambda x: x != engine, choices)
                         other = [f"{ce_short} {alt}" for alt in alternatives]
-                        hint = f"Try installing '{config.container_engine}'"
+                        hint = f"Try installing '{engine}'"
                         hint += f", try again with {oxfordcomma(other, 'or')}"
                         hint += (
                             f" or even '{entry_short}"
@@ -247,7 +251,7 @@ class NavigatorPostProcessor:
             # https://github.com/ansible/ansible-navigator/issues/610
             message_queue_path = "/dev/mqueue/"
             podman_no_message_queue_dir = (
-                config.container_engine == "podman" and not Path(message_queue_path).is_dir()
+                engine == "podman" and not Path(message_queue_path).is_dir()
             )
             if podman_no_message_queue_dir:
                 exit_msg = (
@@ -265,7 +269,7 @@ class NavigatorPostProcessor:
             messages.extend(new_messages)
             exit_messages.extend(new_exit_messages)
 
-            if config.app == "exec" and isinstance(entry.cli_parameters, CliParameters):
+            if config.entries.app.current == "exec" and isinstance(entry.cli_parameters, CliParameters):
                 exit_msg = "The 'exec' subcommand requires execution environment support."
                 exit_messages.append(ExitMessage(message=exit_msg))
                 hint = (
@@ -279,22 +283,22 @@ class NavigatorPostProcessor:
     @staticmethod
     @_post_processor
     def execution_environment_image(
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[str],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         # pylint: disable=unused-argument
         """Post process execution_environment_image"""
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
-        if ":" not in entry.value.current:
+        if isinstance(entry.value.current, str) and ":" not in entry.value.current:
             entry.value.current = f"{entry.value.current}:latest"
         return messages, exit_messages
 
     @_post_processor
     def execution_environment_volume_mounts(
         self,
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[Union[List[str], List[Dict[str, str]]]],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         """Post process set_environment_variable.
 
@@ -400,24 +404,25 @@ class NavigatorPostProcessor:
     @staticmethod
     @_post_processor
     def container_options(
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[List[str]],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         # pylint: disable=unused-argument
         """Post process container_options"""
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
         if entry.value.source == C.ENVIRONMENT_VARIABLE:
-            entry.value.current = to_list(entry.value.current)
-        if entry.value.current is not C.NOT_SET:
-            entry.value.current = flatten_list(entry.value.current)
+            if isinstance(entry.value.current, str):
+                entry.value.current = [entry.value.current]
+        if not isinstance(entry.value.current, C):
+            entry.value.current = entry.value.current
         return messages, exit_messages
 
     @_post_processor
     def exec_shell(
         self,
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[Union[str, bool]],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         """Post process ``exec_shell``.
 
@@ -431,7 +436,7 @@ class NavigatorPostProcessor:
     def _help_for_command(
         self,
         entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        config: ApplicationConfiguration[NavigatorSettings],
         subcommand: str,
     ) -> PostProcessorReturn:
         """Post process help_xxxx
@@ -443,7 +448,7 @@ class NavigatorPostProcessor:
         """
         messages, exit_messages = self._true_or_false(entry, config)
 
-        if entry.value.current is True and config.app == subcommand:
+        if entry.value.current is True and config.entries.app.current == subcommand:
             mode = Mode.STDOUT
             self._requested_mode.append(ModeChangeRequest(entry=entry.name, mode=mode))
             message = message = f"`{entry.name} requesting mode {mode.value}"
@@ -458,19 +463,19 @@ class NavigatorPostProcessor:
 
     @staticmethod
     @_post_processor
-    def inventory(entry: SettingsEntry, config: ApplicationConfiguration) -> PostProcessorReturn:
+    def inventory(entry: SettingsEntry[Union[List[str], str]], config: ApplicationConfiguration[NavigatorSettings]) -> PostProcessorReturn:
         """Post process inventory"""
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
-        if config.app == "inventory" and entry.value.current is C.NOT_SET:
-            if config.entry("help_inventory").value.current is False:
+        if config.entries.app.current == "inventory" and entry.value.current is C.NOT_SET:
+            if config.entries.help_inventory.current is False:
                 exit_msg = "An inventory is required when using the inventory subcommand"
                 exit_messages.append(ExitMessage(message=exit_msg))
                 if entry.cli_parameters:
                     exit_msg = f"Try again with '{entry.cli_parameters.short} <path to inventory>'"
                     exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
                 return messages, exit_messages
-        if entry.value.current is not C.NOT_SET:
+        if not isinstance(entry.value.current, C):
             flattened = flatten_list(entry.value.current)
             entry.value.current = []
             for inv_entry in flattened:
@@ -485,29 +490,29 @@ class NavigatorPostProcessor:
     @staticmethod
     @_post_processor
     def inventory_column(
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[List[str]],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         # pylint: disable=unused-argument
         """Post process inventory_columns"""
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
-        if entry.value.current is not C.NOT_SET:
+        if not isinstance(entry.value.current, C):
             entry.value.current = flatten_list(entry.value.current)
         return messages, exit_messages
 
     @_post_processor
     def log_append(
         self,
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[Union[str, bool]],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         """Post process log_append"""
         return self._true_or_false(entry, config)
 
     @staticmethod
     @_post_processor
-    def log_file(entry: SettingsEntry, config: ApplicationConfiguration) -> PostProcessorReturn:
+    def log_file(entry: SettingsEntry[str], config: ApplicationConfiguration[NavigatorSettings]) -> PostProcessorReturn:
         # pylint: disable=unused-argument
         """Post process log_file
 
@@ -517,6 +522,11 @@ class NavigatorPostProcessor:
         """
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
+
+        # We are promised this is a string because there's a default set... So
+        # it won't be C.NOT_SET. We need to codify that in SettingsEntry.
+        # TODO
+        assert isinstance(entry.value.current, str)
         entry.value.current = abs_user_path(entry.value.current)
         try:
             os.makedirs(os.path.dirname(entry.value.current), exist_ok=True)
@@ -543,7 +553,7 @@ class NavigatorPostProcessor:
         return messages, exit_messages
 
     @_post_processor
-    def mode(self, entry: SettingsEntry, config: ApplicationConfiguration) -> PostProcessorReturn:
+    def mode(self, entry: SettingsEntry, config: ApplicationConfiguration[NavigatorSettings]) -> PostProcessorReturn:
         # pylint: disable=too-many-locals
         """Post process mode
 
@@ -555,7 +565,7 @@ class NavigatorPostProcessor:
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
         subcommand_action = None
-        subcommand_name = config.subcommand(config.app).name
+        subcommand_name = config.subcommand(config.entries.app.current).name
 
         # Post initialization of mode processing is not needed since switching modes after
         # is not supported
@@ -599,7 +609,7 @@ class NavigatorPostProcessor:
         subcommand_stdout_only = not hasattr(subcommand_action, "run")
         if entry.value.current == "interactive" and subcommand_stdout_only:
             subcommand_mode_change_msgs = (
-                f"Subcommand '{config.app}' does not support mode 'interactive'.",
+                f"Subcommand '{config.entries.app.current}' does not support mode 'interactive'.",
                 "Mode set to 'interactive'",
             )
             messages.extend(
@@ -628,18 +638,18 @@ class NavigatorPostProcessor:
         return messages, exit_messages
 
     @_post_processor
-    def osc4(self, entry: SettingsEntry, config: ApplicationConfiguration) -> PostProcessorReturn:
+    def osc4(self, entry: SettingsEntry[Union[str, bool]], config: ApplicationConfiguration[NavigatorSettings]) -> PostProcessorReturn:
         """Post process osc4"""
         return self._true_or_false(entry, config)
 
     @staticmethod
     @_post_processor
-    def plugin_name(entry: SettingsEntry, config: ApplicationConfiguration) -> PostProcessorReturn:
+    def plugin_name(entry: SettingsEntry[str], config: ApplicationConfiguration[NavigatorSettings]) -> PostProcessorReturn:
         """Post process plugin_name"""
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
-        if config.app == "doc" and entry.value.current is C.NOT_SET:
-            if config.entry("help_doc").value.current is False:
+        if config.entries.app.current == "doc" and entry.value.current is C.NOT_SET:
+            if config.entries.help_doc.current is False:
                 exit_msg = "A plugin name is required when using the doc subcommand"
                 exit_messages.append(ExitMessage(message=exit_msg))
                 exit_msg = "Try again with 'doc <plugin_name>'"
@@ -650,25 +660,25 @@ class NavigatorPostProcessor:
     @staticmethod
     @_post_processor
     def pass_environment_variable(
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[List[str]],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         # pylint: disable=unused-argument
         """Post process pass_environment_variable"""
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
-        if entry.value.current is not C.NOT_SET:
+        if not isinstance(entry.value.current, C):
             entry.value.current = flatten_list(entry.value.current)
         return messages, exit_messages
 
     @staticmethod
     @_post_processor
-    def playbook(entry: SettingsEntry, config: ApplicationConfiguration) -> PostProcessorReturn:
+    def playbook(entry: SettingsEntry[str], config: ApplicationConfiguration[NavigatorSettings]) -> PostProcessorReturn:
         """Post process pass_environment_variable"""
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
-        if config.app == "run" and entry.value.current is C.NOT_SET:
-            if config.entry("help_playbook").value.current is False:
+        if config.entries.app.current == "run" and entry.value.current is C.NOT_SET:
+            if config.entries.help_playbook.current is False:
                 exit_msg = "A playbook is required when using the run subcommand"
                 exit_messages.append(ExitMessage(message=exit_msg))
                 exit_msg = "Try again with 'run <playbook name>'"
@@ -681,8 +691,8 @@ class NavigatorPostProcessor:
     @_post_processor
     def playbook_artifact_enable(
         self,
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[Union[str, bool]],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         """Post process playbook_artifact_enable"""
         return self._true_or_false(entry, config)
@@ -690,13 +700,13 @@ class NavigatorPostProcessor:
     @staticmethod
     @_post_processor
     def playbook_artifact_replay(
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[str],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         """Post process playbook_artifact_replay"""
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
-        if config.app == "replay" and entry.value.current is C.NOT_SET:
+        if config.entries.app.current == "replay" and entry.value.current is C.NOT_SET:
             exit_msg = "An playbook artifact file is required when using the replay subcommand"
             exit_messages.append(ExitMessage(message=exit_msg))
             exit_msg = "Try again with 'replay <path to playbook artifact>'"
@@ -706,8 +716,8 @@ class NavigatorPostProcessor:
         if isinstance(entry.value.current, str):
             entry.value.current = abs_user_path(entry.value.current)
 
-        if config.app == "replay":
-            if not os.path.isfile(entry.value.current):
+        if config.entries.app.current == "replay":
+            if isinstance(entry.value.current, str) and not os.path.isfile(entry.value.current):
                 exit_msg = (
                     f"The specified playbook artifact could not be found: {entry.value.current}"
                 )
@@ -720,7 +730,7 @@ class NavigatorPostProcessor:
     @staticmethod
     @_post_processor
     def pull_arguments(
-        entry: SettingsEntry,
+        entry: SettingsEntry[List[str]],
         config: ApplicationConfiguration,
     ) -> PostProcessorReturn:
         # pylint: disable=unused-argument
@@ -732,7 +742,7 @@ class NavigatorPostProcessor:
         """
         messages: List[LogMessage] = []
         exit_messages: List[ExitMessage] = []
-        if entry.value.source == C.ENVIRONMENT_VARIABLE:
+        if entry.value.source == C.ENVIRONMENT_VARIABLE and not isinstance(entry.value.current, C):
             entry.value.current = to_list(entry.value.current)
         if entry.value.current is not C.NOT_SET:
             entry.value.current = flatten_list(entry.value.current)
@@ -741,8 +751,8 @@ class NavigatorPostProcessor:
     @staticmethod
     @_post_processor
     def set_environment_variable(
-        entry: SettingsEntry,
-        config: ApplicationConfiguration,
+        entry: SettingsEntry[Union[List[str], Dict[str, str]]],
+        config: ApplicationConfiguration[NavigatorSettings],
     ) -> PostProcessorReturn:
         # pylint: disable=unused-argument
         """Post process set_environment_variable"""
@@ -752,9 +762,10 @@ class NavigatorPostProcessor:
             C.ENVIRONMENT_VARIABLE,
             C.USER_CLI,
         ]:
-            flattened = flatten_list(entry.value.current)
+            # TODO: Codify in SettingsEntry
+            assert isinstance(entry.value.source, list)
             set_envs = {}
-            for env_var_pair in flattened:
+            for env_var_pair in entry.value.current:
                 parts = env_var_pair.split("=")
                 if len(parts) == 2:
                     set_envs[parts[0]] = parts[1]
@@ -769,5 +780,6 @@ class NavigatorPostProcessor:
                         exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
             entry.value.current = set_envs
         if entry.value.source is not C.NOT_SET:
+            assert isinstance(entry.value.source, dict)
             entry.value.current = {k: str(v) for k, v in entry.value.current.items()}
         return messages, exit_messages

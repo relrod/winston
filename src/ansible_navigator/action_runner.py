@@ -20,6 +20,7 @@ from ansible_navigator.actions import kegexes
 from ansible_navigator.actions import run_action
 from .action_base import ActionBase
 from .configuration_subsystem import ApplicationConfiguration
+from .configuration_subsystem.navigator_settings import NavigatorSettings
 from .steps import Steps
 from .ui_framework import Interaction
 from .ui_framework import UIConfig
@@ -43,7 +44,7 @@ THEME = "dark_vs.json"
 class ActionRunner(ActionBase):
     """A single action runner."""
 
-    def __init__(self, args: ApplicationConfiguration) -> None:
+    def __init__(self, args: ApplicationConfiguration[NavigatorSettings]) -> None:
         """Initialize the ActionRunner class.
 
         :param args: The current application configuration
@@ -62,10 +63,10 @@ class ActionRunner(ActionBase):
         theme_dir = os.path.join(share_directory, "themes")
 
         config = UIConfig(
-            color=self._args.display_color,
+            color=self._args.entries.display_color.current,
             colors_initialized=False,
             grammar_dir=os.path.join(share_directory, "grammar"),
-            osc4=self._args.osc4,
+            osc4=self._args.entries.osc4.current,
             terminal_colors_path=os.path.join(theme_dir, DEFAULT_COLORS),
             theme_path=os.path.join(theme_dir, THEME),
         )
@@ -88,7 +89,7 @@ class ActionRunner(ActionBase):
         :param _screen: The screen instance from the curses wrapper call
         """
         self.initialize_ui(DEFAULT_REFRESH)
-        name, action = self._action_match(self._args.app)
+        name, action = self._action_match(self._args.entries.app.current)
         if name and action:
             interaction = Interaction(
                 name=name,

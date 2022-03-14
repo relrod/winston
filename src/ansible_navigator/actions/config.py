@@ -16,6 +16,7 @@ from ..action_base import ActionBase
 from ..action_defs import RunStdoutReturn
 from ..app_public import AppPublic
 from ..configuration_subsystem import ApplicationConfiguration
+from ..configuration_subsystem.navigator_settings import NavigatorSettings
 from ..runner import AnsibleConfig
 from ..runner import Command
 from ..steps import Step
@@ -86,7 +87,7 @@ class Action(ActionBase):
 
     KEGEX = r"^config(\s(?P<params>.*))?$"
 
-    def __init__(self, args: ApplicationConfiguration):
+    def __init__(self, args: ApplicationConfiguration[NavigatorSettings]):
         """Initialize the ``:config`` action.
 
         :param args: The current settings for the application
@@ -218,40 +219,40 @@ class Action(ActionBase):
         :returns: For mode interactive nothing. For mode stdout the
             output, errors and return code from runner.
         """
-        if isinstance(self._args.set_environment_variable, dict):
-            set_env_vars = {**self._args.set_environment_variable}
+        if isinstance(self._args.entries.set_environment_variable.current, dict):
+            set_env_vars = {**self._args.entries.set_environment_variable.current}
         else:
             set_env_vars = {}
 
-        if self._args.display_color is False:
+        if self._args.entries.display_color.current is False:
             set_env_vars["ANSIBLE_NOCOLOR"] = "1"
 
         kwargs = {
-            "container_engine": self._args.container_engine,
+            "container_engine": self._args.entries.container_engine.current,
             "host_cwd": os.getcwd(),
-            "execution_environment_image": self._args.execution_environment_image,
-            "execution_environment": self._args.execution_environment,
-            "navigator_mode": self._args.mode,
-            "pass_environment_variable": self._args.pass_environment_variable,
+            "execution_environment_image": self._args.entries.execution_environment_image.current,
+            "execution_environment": self._args.entries.execution_environment.current,
+            "navigator_mode": self._args.entries.mode.current,
+            "pass_environment_variable": self._args.entries.pass_environment_variable.current,
             "set_environment_variable": set_env_vars,
-            "private_data_dir": self._args.ansible_runner_artifact_dir,
-            "rotate_artifacts": self._args.ansible_runner_rotate_artifacts_count,
-            "timeout": self._args.ansible_runner_timeout,
+            "private_data_dir": self._args.entries.ansible_runner_artifact_dir.current,
+            "rotate_artifacts": self._args.entries.ansible_runner_rotate_artifacts_count.current,
+            "timeout": self._args.entries.ansible_runner_timeout.current,
         }
 
-        if isinstance(self._args.execution_environment_volume_mounts, list):
+        if isinstance(self._args.entries.execution_environment_volume_mounts.current, list):
             kwargs.update(
-                {"container_volume_mounts": self._args.execution_environment_volume_mounts},
+                {"container_volume_mounts": self._args.entries.execution_environment_volume_mounts.current},
             )
 
-        if isinstance(self._args.container_options, list):
-            kwargs.update({"container_options": self._args.container_options})
+        if isinstance(self._args.entries.container_options.current, list):
+            kwargs.update({"container_options": self._args.entries.container_options.current})
 
-        if self._args.mode == "interactive":
+        if self._args.entries.mode.current == "interactive":
             self._runner = AnsibleConfig(**kwargs)
             kwargs = {}
-            if isinstance(self._args.config, str):
-                kwargs["config_file"] = self._args.config
+            if isinstance(self._args.entries.config.current, str):
+                kwargs["config_file"] = self._args.entries.config.current
             list_output, list_output_err = self._runner.fetch_ansible_config("list", **kwargs)
             dump_output, dump_output_err = self._runner.fetch_ansible_config("dump", **kwargs)
             if list_output_err:
@@ -273,7 +274,7 @@ class Action(ActionBase):
             else:
                 self._parse_and_merge(list_output, dump_output)
         else:
-            if self._args.execution_environment:
+            if self._args.entries.execution_environment.current:
                 ansible_config_path = "ansible-config"
             else:
                 exec_path = shutil.which("ansible-config")
@@ -283,16 +284,16 @@ class Action(ActionBase):
                     raise RuntimeError(msg)
                 ansible_config_path = exec_path
 
-            if isinstance(self._args.cmdline, list):
-                pass_through_arg = self._args.cmdline.copy()
+            if isinstance(self._args.entries.cmdline.current, list):
+                pass_through_arg = self._args.entries.cmdline.current.copy()
             else:
                 pass_through_arg = []
 
-            if self._args.help_config is True:
+            if self._args.entries.help_config.current is True:
                 pass_through_arg.append("--help")
 
-            if isinstance(self._args.config, str):
-                pass_through_arg.extend(["--config", self._args.config])
+            if isinstance(self._args.entries.config.current, str):
+                pass_through_arg.extend(["--config", self._args.entries.config.current])
 
             kwargs.update({"cmdline": pass_through_arg})
 

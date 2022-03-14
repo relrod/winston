@@ -92,17 +92,15 @@ def test_artifact_path(_mocked_get_status, _mocked_makedirs, caplog, data):
     caplog.set_level(logging.DEBUG)
 
     args = deepcopy(NavigatorConfiguration)
-    args.entry("playbook").value.current = data.playbook
-    args.entry("help_playbook").value.current = data.help_playbook
-    args.post_processor.playbook(entry=args.entry("playbook"), config=args)
-    playbook_artifact_save_as = args.entry("playbook_artifact_save_as")
+    args.entries.playbook.value.current = data.playbook
+    args.entries.help_playbook.value.current = data.help_playbook
+    args.post_processor.playbook(entry=args.entries.playbook, config=args)
+    playbook_artifact_save_as = args.entries.playbook_artifact_save_as
     if data.filename:
-        args.entry("playbook_artifact_save_as").value.current = data.filename
+        args.entries.playbook_artifact_save_as.value.current = data.filename
     else:
-        args.entry(
-            "playbook_artifact_save_as",
-        ).value.current = playbook_artifact_save_as.value.default
-    args.entry("playbook_artifact_enable").value.current = True
+        args.entries.playbook_artifact_save_as.value.current = playbook_artifact_save_as.value.default
+    args.entries.playbook_artifact_enable.value.current = True
 
     run = action(args=args)
 

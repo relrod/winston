@@ -13,6 +13,7 @@ from typing import Optional
 
 from ..app_public import AppPublic
 from ..configuration_subsystem import ApplicationConfiguration
+from ..configuration_subsystem.navigator_settings import NavigatorSettings
 from ..ui_framework import ContentView
 from ..ui_framework import Interaction
 from ..ui_framework import Menu
@@ -47,7 +48,7 @@ class Action:
 
     KEGEX = r"^o(?:pen)?(\s(?P<something>.*))?$"
 
-    def __init__(self, args: ApplicationConfiguration):
+    def __init__(self, args: ApplicationConfiguration[NavigatorSettings]):
         """Initialize the ``:open`` action.
 
         :param args: The current settings for the application
@@ -131,8 +132,8 @@ class Action:
                     filename = Path(file_like.name)
                     file_like.write(obj)
 
-        command = self._args.editor_command.format(filename=filename, line_number=line_number)
-        is_console = self._args.editor_console
+        command = self._args.entries.editor_command.current.format(filename=filename, line_number=line_number)
+        is_console = self._args.entries.editor_console.current
 
         self._logger.debug("Command: %s", command)
         if isinstance(command, str):

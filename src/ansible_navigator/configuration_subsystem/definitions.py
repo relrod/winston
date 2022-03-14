@@ -6,16 +6,21 @@ import copy
 from dataclasses import InitVar
 from dataclasses import dataclass
 from dataclasses import field
+from dataclasses import fields
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import Callable
+from typing import Generic
 from typing import Iterable
 from typing import List
 from typing import Optional
 from typing import Tuple
 from typing import TypeVar
 from typing import Union
+from typing import Tuple
+from typing import TypeVar
 
 from ..utils.functions import oxfordcomma
 
@@ -24,6 +29,7 @@ if TYPE_CHECKING:
     from .navigator_configuration import Internals
     from .navigator_post_processor import NavigatorPostProcessor
 
+T = TypeVar('T')
 
 class Constants(Enum):
     """Mapping some constants to friendly text"""
@@ -71,13 +77,13 @@ class CliParameters:
 
 
 @dataclass
-class SettingsEntryValue:
+class SettingsEntryValue(Generic[T]):
     """An object to store a value."""
 
     #: The default value for the entry
-    default: Any = Constants.NOT_SET
+    default: Union[Constants, T] = Constants.NOT_SET
     #: The current, effective value for the entry
-    current: Any = Constants.NOT_SET
+    current: Union[Constants, T] = Constants.NOT_SET
     #: Indicates where the current value came from
     source: Constants = Constants.NOT_SET
 
@@ -111,7 +117,7 @@ class SettingsEntryValue:
 
 
 @dataclass
-class SettingsEntry:
+class SettingsEntry(Generic[T]):
     # pylint: disable=too-many-instance-attributes
     """One entry in the configuration."""
 
@@ -120,7 +126,7 @@ class SettingsEntry:
     #: A short description used for the argparse help
     short_description: str
     #: The value for the entry
-    value: SettingsEntryValue
+    value: SettingsEntryValue[T]
     #: Indicates if this should be applied to future CLIs parsed
     apply_to_subsequent_cli: Constants = Constants.ALL
     #: Indicates if this can be changed after initialization
@@ -185,6 +191,16 @@ class SettingsEntry:
 
         return sfp.replace("_", "-")
 
+    @property
+    def current(self) -> Union[Constants, T]:
+        """Get current value (read-only)"""
+        return self.value.current
+
+    @property
+    def default(self) -> Union[Constants, T]:
+        """Get default value (read-only)"""
+        return self.value.default
+
 
 @dataclass(frozen=True)
 class SubCommand:
@@ -196,12 +212,15 @@ class SubCommand:
 
 
 @dataclass
-class ApplicationConfiguration:
+class ApplicationConfiguration(Generic[T]):
     # pylint: disable=too-many-instance-attributes
-    """The main object for storing an application config"""
+    """The main object for storing an application config
+
+    ``T``: The class containing our configuration/setting entries.
+    """
 
     application_version: Union[Constants, str]
-    entries: List[SettingsEntry]
+    entries: T
     internals: "Internals"
     post_processor: "NavigatorPostProcessor"
     subcommands: List[SubCommand]
@@ -229,10 +248,12 @@ class ApplicationConfiguration:
         except (AttributeError, KeyError):
             return super().__getattribute__(attr)
 
-    def entry(self, name) -> SettingsEntry:
+    def entry(self, name) -> Optional[SettingsEntry]:
         """Retrieve a configuration entry by name"""
-        return self._get_by_name(name, "entries")
+        return getattr(self.entries, name, None)
 
+    # TODO: Make subcommands field work differently. We shouldn't need to
+    # traverse a list when we have a key to index on.
     def subcommand(self, name) -> SubCommand:
         """Retrieve a configuration subcommand by name"""
         return self._get_by_name(name, "subcommands")

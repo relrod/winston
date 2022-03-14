@@ -13,6 +13,7 @@ from .action_defs import RunStdoutReturn
 from .app_public import AppPublic
 from .configuration_subsystem import ApplicationConfiguration
 from .configuration_subsystem import Constants as C
+from .configuration_subsystem.navigator_settings import NavigatorSettings
 from .initialization import parse_and_update
 from .steps import Steps
 from .ui_framework import Interaction
@@ -27,7 +28,7 @@ class ActionBase:
     # pylint: disable=too-many-instance-attributes
     """Base class for actions."""
 
-    def __init__(self, args: ApplicationConfiguration, name: str, logger_name: str = __name__):
+    def __init__(self, args: ApplicationConfiguration[NavigatorSettings], name: str, logger_name: str = __name__):
         """Initialize the App class.
 
         :param args: The current application configuration
@@ -36,7 +37,7 @@ class ActionBase:
         """
         self._logger = logging.getLogger(logger_name)
 
-        self._args: ApplicationConfiguration = self._copy_args(args)
+        self._args: ApplicationConfiguration[NavigatorSettings] = self._copy_args(args)
         self._calling_app: AppPublic
         self._interaction: Interaction
         self._name = name
@@ -98,7 +99,7 @@ class ActionBase:
         interaction.ui.show(warning)
 
     @staticmethod
-    def _copy_args(args: ApplicationConfiguration) -> ApplicationConfiguration:
+    def _copy_args(args: ApplicationConfiguration[NavigatorSettings]) -> ApplicationConfiguration:
         """Deepcopy the args.
 
         Note: Unmount the collection doc cache (CDC) first

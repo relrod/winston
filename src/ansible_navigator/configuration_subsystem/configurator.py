@@ -215,8 +215,8 @@ class Configurator:
             return
         args, cmdline = parser_response
         if cmdline:
-            self._config.entry("cmdline").value.current = cmdline
-            self._config.entry("cmdline").value.source = C.USER_CLI
+            self._config.entries.cmdline.value.current = cmdline
+            self._config.entries.cmdline.value.source = C.USER_CLI
         for param, value in vars(args).items():
             if self._config.entry(param).subcommand_value is True and value is None:
                 continue

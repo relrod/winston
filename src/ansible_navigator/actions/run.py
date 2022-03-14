@@ -25,6 +25,7 @@ from ..action_base import ActionBase
 from ..action_defs import RunStdoutReturn
 from ..app_public import AppPublic
 from ..configuration_subsystem import ApplicationConfiguration
+from ..configuration_subsystem.navigator_settings import NavigatorSettings
 from ..runner import CommandAsync
 from ..steps import Step
 from ..ui_framework import CursesLine
@@ -190,7 +191,7 @@ class Action(ActionBase):
             (\s(?P<params_run>.*))?)
             $"""
 
-    def __init__(self, args: ApplicationConfiguration):
+    def __init__(self, args: ApplicationConfiguration[NavigatorSettings]):
         """Initialize the ``:run`` action.
 
         :param args: The current settings for the application
@@ -223,13 +224,13 @@ class Action(ActionBase):
         run in interactive mode, but print stdout"""
         if all(
             (
-                self._args.mode == "stdout",
-                self._args.playbook_artifact_enable,
-                self._args.app != "replay",
+                self._args.entries.mode.current == "stdout",
+                self._args.entries.playbook_artifact_enable.current,
+                self._args.entries.app.current != "replay",
             ),
         ):
             return "stdout_w_artifact"
-        return self._args.mode
+        return self._args.entries.mode.current
 
     def run_stdout(self) -> RunStdoutReturn:
         """Execute the ``inventory`` request for mode stdout.
@@ -237,7 +238,7 @@ class Action(ActionBase):
         :returns: The return code from the runner invocation, along with a message to review the
             logs if not 0.
         """
-        if self._args.app == "replay":
+        if self._args.entries.app.current == "replay":
             successful: bool = self._init_replay()
             if successful:
                 return RunStdoutReturn(message="", return_code=0)
@@ -250,7 +251,7 @@ class Action(ActionBase):
         while True:
             self._dequeue()
             if self.runner.finished:
-                if self._args.playbook_artifact_enable:
+                if self._args.entries.playbook_artifact_enable.current:
                     self.write_artifact()
                 self._logger.debug("runner finished")
                 break
@@ -320,7 +321,7 @@ class Action(ActionBase):
                     break
 
             if self.steps.current.name == "quit":
-                if self._args.app == "replay":
+                if self._args.entries.app.current == "replay":
                     self._prepare_to_exit(interaction)
                     return self.steps.current
                 done = self._prepare_to_quit(self.steps.current)
@@ -342,13 +343,13 @@ class Action(ActionBase):
             ["run"] + shlex.split(self._interaction.action.match.groupdict()["params_run"] or ""),
         )
 
-        if isinstance(self._args.playbook, str):
-            playbook_valid = os.path.exists(self._args.playbook)
+        if isinstance(self._args.entries.playbook.current, str):
+            playbook_valid = os.path.exists(self._args.entries.playbook.current)
         else:
             playbook_valid = False
 
-        if isinstance(self._args.inventory, list):
-            inventory_valid = all((os.path.exists(inv) for inv in self._args.inventory))
+        if isinstance(self._args.entries.inventory.current, list):
+            inventory_valid = all((os.path.exists(inv) for inv in self._args.entries.inventory.current))
         else:
             # Permit running without an inventory
             inventory_valid = True
@@ -388,10 +389,10 @@ class Action(ActionBase):
                 + shlex.split(self._interaction.action.match.groupdict()["params_replay"] or ""),
             )
 
-        artifact_file = self._args.playbook_artifact_replay
+        artifact_file = self._args.entries.playbook_artifact_replay.current
 
-        if isinstance(self._args.playbook_artifact_replay, str):
-            artifact_valid = os.path.exists(self._args.playbook_artifact_replay)
+        if isinstance(self._args.entries.playbook_artifact_replay.current, str):
+            artifact_valid = os.path.exists(self._args.entries.playbook_artifact_replay.current)
         else:
             artifact_valid = False
 
@@ -419,7 +420,7 @@ class Action(ActionBase):
                     self.stdout = stdout
                 else:
                     for line in data["stdout"]:
-                        if self._args.display_color is True:
+                        if self._args.entries.display_color.current is True:
                             print(line)
                         else:
                             print(remove_ansi(line))
@@ -467,18 +468,18 @@ class Action(ActionBase):
 
         self._logger.debug("Inventory/Playbook not set, provided, or valid, prompting")
 
-        if isinstance(self._args.playbook, str):
-            playbook = self._args.playbook
+        if isinstance(self._args.entries.playbook.current, str):
+            playbook = self._args.entries.playbook.current
         else:
             playbook = ""
 
-        if isinstance(self._args.inventory, list):
-            inventory = self._args.inventory
+        if isinstance(self._args.entries.inventory.current, list):
+            inventory = self._args.entries.inventory.current
         else:
             inventory = ["", "", ""]
 
-        if isinstance(self._args.cmdline, list):
-            cmdline = " ".join(self._args.cmdline)
+        if isinstance(self._args.entries.cmdline.current, list):
+            cmdline = " ".join(self._args.entries.cmdline.current)
         else:
             cmdline = ""
 
@@ -569,40 +570,40 @@ class Action(ActionBase):
         else:
             mode = self.mode
 
-        if isinstance(self._args.set_environment_variable, dict):
-            set_env_vars = {**self._args.set_environment_variable}
+        if isinstance(self._args.entries.set_environment_variable.current, dict):
+            set_env_vars = {**self._args.entries.set_environment_variable.current}
         else:
             set_env_vars = {}
 
-        if self._args.display_color is False:
+        if self._args.entries.display_color.current is False:
             set_env_vars["ANSIBLE_NOCOLOR"] = "1"
 
         kwargs = {
-            "container_engine": self._args.container_engine,
+            "container_engine": self._args.entries.container_engine.current,
             "host_cwd": os.getcwd(),
-            "execution_environment_image": self._args.execution_environment_image,
-            "execution_environment": self._args.execution_environment,
-            "inventory": self._args.inventory,
+            "execution_environment_image": self._args.entries.execution_environment_image.current,
+            "execution_environment": self._args.entries.execution_environment.current,
+            "inventory": self._args.entries.inventory.current,
             "navigator_mode": mode,
-            "pass_environment_variable": self._args.pass_environment_variable,
+            "pass_environment_variable": self._args.entries.pass_environment_variable.current,
             "set_environment_variable": set_env_vars,
-            "private_data_dir": self._args.ansible_runner_artifact_dir,
-            "rotate_artifacts": self._args.ansible_runner_rotate_artifacts_count,
-            "timeout": self._args.ansible_runner_timeout,
+            "private_data_dir": self._args.entries.ansible_runner_artifact_dir.current,
+            "rotate_artifacts": self._args.entries.ansible_runner_rotate_artifacts_count.current,
+            "timeout": self._args.entries.ansible_runner_timeout.current,
         }
 
-        if isinstance(self._args.playbook, str):
-            kwargs.update({"playbook": self._args.playbook})
+        if isinstance(self._args.entries.playbook.current, str):
+            kwargs.update({"playbook": self._args.entries.playbook.current})
 
-        if isinstance(self._args.execution_environment_volume_mounts, list):
+        if isinstance(self._args.entries.execution_environment_volume_mounts.current, list):
             kwargs.update(
-                {"container_volume_mounts": self._args.execution_environment_volume_mounts},
+                {"container_volume_mounts": self._args.entries.execution_environment_volume_mounts.current},
             )
 
-        if isinstance(self._args.container_options, list):
-            kwargs.update({"container_options": self._args.container_options})
+        if isinstance(self._args.entries.container_options.current, list):
+            kwargs.update({"container_options": self._args.entries.container_options.current})
 
-        if self._args.execution_environment:
+        if self._args.entries.execution_environment.current:
             executable_cmd = "ansible-playbook"
         else:
             executable_cmd = shutil.which("ansible-playbook")
@@ -612,10 +613,10 @@ class Action(ActionBase):
                 raise RuntimeError(msg)
 
         pass_through_arg = []
-        if self._args.help_playbook is True:
+        if self._args.entries.help_playbook.current is True:
             pass_through_arg.append("--help")
-        if isinstance(self._args.cmdline, list):
-            pass_through_arg.extend(self._args.cmdline)
+        if isinstance(self._args.entries.cmdline.current, list):
+            pass_through_arg.extend(self._args.entries.cmdline.current)
         kwargs.update({"cmdline": pass_through_arg})
 
         self.runner = CommandAsync(executable_cmd=executable_cmd, queue=self._queue, **kwargs)
@@ -835,13 +836,13 @@ class Action(ActionBase):
         """
         if (
             filename
-            or self._args.playbook_artifact_enable is True
-            and self._args.help_playbook is not True
+            or self._args.entries.playbook_artifact_enable.current is True
+            and self._args.entries.help_playbook.current is not True
         ):
-            filename = filename or self._args.playbook_artifact_save_as
+            filename = filename or self._args.entries.playbook_artifact_save_as.current
             filename = filename.format(
-                playbook_dir=os.path.dirname(self._args.playbook),
-                playbook_name=os.path.splitext(os.path.basename(self._args.playbook))[0],
+                playbook_dir=os.path.dirname(self._args.entries.playbook.current),
+                playbook_name=os.path.splitext(os.path.basename(self._args.entries.playbook.current))[0],
                 ts_utc=now_iso(time_zone="UTC"),
             )
             self._logger.debug("Formatted artifact file name set to %s", filename)

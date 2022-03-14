@@ -100,6 +100,8 @@ class ActionRunTest:
         self._app_args.update({"mode": "interactive"})
         args = deepcopy(NavigatorConfiguration)
         for argument, value in self._app_args.items():
+            # TODO ???
+            assert args.entry(argument) is not None
             args.entry(argument).value.current = value
             args.entry(argument).value.source = C.USER_CFG
 
@@ -142,6 +144,7 @@ class ActionRunTest:
         self._app_args.update(kwargs)
         args = deepcopy(NavigatorConfiguration)
         for argument, value in self._app_args.items():
+            assert args.entry(argument) is not None
             args.entry(argument).value.current = value
             args.entry(argument).value.source = C.USER_CFG
 

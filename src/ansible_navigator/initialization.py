@@ -16,6 +16,7 @@ from ._version_doc_cache import __version_collection_doc_cache__ as VERSION_CDC
 from .configuration_subsystem import ApplicationConfiguration
 from .configuration_subsystem import Configurator
 from .configuration_subsystem import Constants as C
+from .configuration_subsystem.navigator_settings import NavigatorSettings
 from .utils.functions import ExitMessage
 from .utils.functions import ExitPrefix
 from .utils.functions import LogMessage
@@ -143,7 +144,7 @@ def get_and_check_collection_doc_cache(
 
 def parse_and_update(
     params: List,
-    args: ApplicationConfiguration,
+    args: ApplicationConfiguration[NavigatorSettings],
     apply_previous_cli_entries: Union[C, List[str]] = C.NONE,
     attach_cdc=False,
 ) -> Tuple[List[LogMessage], List[ExitMessage]]:
@@ -186,7 +187,7 @@ def parse_and_update(
         mount_collection_cache = True
         message = "Collection doc cache not mounted"
         messages.append(LogMessage(level=logging.DEBUG, message=message))
-    elif args.initial.collection_doc_cache_path != args.collection_doc_cache_path:
+    elif args.initial.collection_doc_cache_path != args.entries.collection_doc_cache_path.current:
         mount_collection_cache = True
         message = "Collection doc cache path changed"
         messages.append(LogMessage(level=logging.DEBUG, message=message))
@@ -195,7 +196,7 @@ def parse_and_update(
 
     if mount_collection_cache and isinstance(args.collection_doc_cache_path, str):
         new_messages, new_exit_messages, cache = get_and_check_collection_doc_cache(
-            args.collection_doc_cache_path,
+            args.entries.collection_doc_cache_path.current,
         )
         messages.extend(new_messages)
         exit_messages.extend(new_exit_messages)

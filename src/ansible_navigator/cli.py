@@ -24,6 +24,7 @@ from .actions import run_action_stdout
 from .configuration_subsystem import ApplicationConfiguration
 from .configuration_subsystem import Constants
 from .configuration_subsystem import NavigatorConfiguration
+from .configuration_subsystem.navigator_settings import NavigatorSettings
 from .image_manager import ImagePuller
 from .initialization import error_and_exit_early
 from .initialization import parse_and_update
@@ -60,10 +61,10 @@ def log_dependencies() -> List[LogMessage]:
 def pull_image(args):
     """pull the image if required"""
     image_puller = ImagePuller(
-        container_engine=args.container_engine,
-        image=args.execution_environment_image,
-        arguments=args.pull_arguments,
-        pull_policy=args.pull_policy,
+        container_engine=args.entries.container_engine.current,
+        image=args.entries.execution_environment_image.current,
+        arguments=args.entries.pull_arguments.current,
+        pull_policy=args.entries.pull_policy.current,
     )
     image_puller.assess()
     if image_puller.assessment.exit_messages:
@@ -75,14 +76,14 @@ def pull_image(args):
         error_and_exit_early(image_puller.assessment.exit_messages)
 
 
-def setup_logger(args: ApplicationConfiguration) -> None:
+def setup_logger(args: ApplicationConfiguration[NavigatorSettings]) -> None:
     """set up the logger
 
     :param args: The CLI args
     """
-    if os.path.exists(args.log_file) and args.log_append is False:
-        os.remove(args.log_file)
-    handler = logging.FileHandler(args.log_file)
+    if os.path.exists(args.entries.log_file.current) and args.entries.log_append.current is False:
+        os.remove(args.entries.log_file.current)
+    handler = logging.FileHandler(args.entries.log_file.current)
     formatter = logging.Formatter(
         fmt="%(asctime)s.%(msecs)03d %(levelname)s '%(name)s.%(funcName)s' %(message)s",
         datefmt="%y%m%d%H%M%S",
@@ -90,7 +91,7 @@ def setup_logger(args: ApplicationConfiguration) -> None:
     setattr(formatter, "converter", time.gmtime)
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-    log_level = getattr(logging, args.log_level.upper())
+    log_level = getattr(logging, args.entries.log_level.current.upper())
     logger.setLevel(log_level)
     logger.info("New %s instance, logging initialized", APP_NAME)
 
@@ -101,21 +102,21 @@ def setup_logger(args: ApplicationConfiguration) -> None:
     logger.info("New ansible-runner instance, logging initialized")
 
 
-def run(args: ApplicationConfiguration) -> ActionReturn:
+def run(args: ApplicationConfiguration[NavigatorSettings]) -> ActionReturn:
     """Run the appropriate subcommand.
 
     :param args: The current application settings
     :returns: A message to display and a return code
     """
-    if args.mode == "stdout":
+    if args.entries.mode.current == "stdout":
         try:
-            result = run_action_stdout(args.app.replace("-", "_"), args)
+            result = run_action_stdout(args.entries.app.current.replace("-", "_"), args)
             return result
         except KeyboardInterrupt:
             logger.warning("Dirty exit, killing the pid")
             os.kill(os.getpid(), signal.SIGTERM)
             return RunStdoutReturn(message="", return_code=1)
-    elif args.mode == "interactive":
+    elif args.entries.mode.current == "interactive":
         try:
             clear_screen()
             wrapper(ActionRunner(args=args).run)
@@ -149,16 +150,16 @@ def main():
     # but a viable log file is still needed, set to default since
     # it cannot be determined if the error is log file location related
     if exit_messages:
-        args.entry("log_file").value.current = args.entry("log_file").value.default
-        args.entry("log_level").value.current = "debug"
-        exit_msg = f"Configuration failed, using default log file location: {args.log_file}."
-        exit_msg += f" Log level set to {args.log_level}"
+        args.entries.log_file.value.current = args.entries.log_file.default
+        args.entries.log_level.value.current = "debug"
+        exit_msg = f"Configuration failed, using default log file location: {args.entries.log_file.current}."
+        exit_msg += f" Log level set to {args.entries.log_level.current}"
         exit_messages.append(ExitMessage(message=exit_msg))
-        exit_msg = f"Review the hints and log file to see what went wrong: {args.log_file}"
+        exit_msg = f"Review the hints and log file to see what went wrong: {args.entries.log_file.current}"
         exit_messages.append(ExitMessage(message=exit_msg, prefix=ExitPrefix.HINT))
 
     try:
-        Path(args.log_file).touch()
+        Path(args.entries.log_file.current).touch()
         setup_logger(args)
     except Exception as exc:  # pylint: disable=broad-except
         exit_msg = "The log file path or logging engine could not be setup."
@@ -177,7 +178,7 @@ def main():
 
     os.environ.setdefault("ESCDELAY", "25")
 
-    if args.execution_environment:
+    if args.entries.execution_environment.current:
         pull_image(args)
 
     run_return = run(args)

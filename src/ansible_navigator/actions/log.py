@@ -2,6 +2,7 @@
 from ..action_base import ActionBase
 from ..app_public import AppPublic
 from ..configuration_subsystem import ApplicationConfiguration
+from ..configuration_subsystem.navigator_settings import NavigatorSettings
 from ..ui_framework import Interaction
 from . import _actions as actions
 
@@ -12,7 +13,7 @@ class Action(ActionBase):
 
     KEGEX = r"^l(?:og)?$"
 
-    def __init__(self, args: ApplicationConfiguration):
+    def __init__(self, args: ApplicationConfiguration[NavigatorSettings]):
         """Initialize the ``:log`` action.
 
         :param args: The current settings for the application
@@ -32,7 +33,7 @@ class Action(ActionBase):
         auto_scroll = True
         while True:
             self._calling_app.update()
-            with open(self._args.log_file, encoding="utf-8") as fh:
+            with open(self._args.entries.log_file.current, encoding="utf-8") as fh:
                 log_contents = fh.read()
 
             new_scroll = len(log_contents.splitlines())

@@ -16,6 +16,7 @@ from ..action_base import ActionBase
 from ..action_defs import RunStdoutReturn
 from ..app_public import AppPublic
 from ..configuration_subsystem import ApplicationConfiguration
+from ..configuration_subsystem.navigator_settings import NavigatorSettings
 from ..configuration_subsystem import Constants as C
 from ..runner import AnsibleDoc
 from ..runner import Command
@@ -32,7 +33,7 @@ class Action(ActionBase):
 
     KEGEX = r"^d(?:oc)?(\s(?P<params>.*))?$"
 
-    def __init__(self, args: ApplicationConfiguration):
+    def __init__(self, args: ApplicationConfiguration[NavigatorSettings]):
         """Initialize the ``doc`` action.
 
         :param args: The current settings for the application
@@ -78,17 +79,17 @@ class Action(ActionBase):
             [self._name] + shlex.split(self._interaction.action.match.groupdict()["params"] or ""),
         )
 
-        plugin_name_source = self._args.entry("plugin_name").value.source
+        plugin_name_source = self._args.entries.plugin_name.value.source
 
         if plugin_name_source is C.USER_CLI:
-            self._plugin_name = self._args.plugin_name
-            self._plugin_type = self._args.plugin_type
+            self._plugin_name = self._args.entries.plugin_name.current
+            self._plugin_type = self._args.entries.plugin_type.current
             source = plugin_name_source.value
         elif plugin_name_source is C.NOT_SET:
             if interaction.content:
                 try:
                     self._plugin_name = interaction.content.showing["task_action"]
-                    self._plugin_type = self._args.entry("plugin_type").value.default
+                    self._plugin_type = self._args.entries.plugin_type.default
                     source = "task action"
                 except (KeyError, AttributeError, TypeError):
                     self._logger.info("No plugin name found in current content")
@@ -96,8 +97,8 @@ class Action(ActionBase):
             else:
                 return None
         elif plugin_name_source is not C.NOT_SET:
-            self._plugin_name = self._args.plugin_name
-            self._plugin_type = self._args.plugin_type
+            self._plugin_name = self._args.entries.plugin_name.current
+            self._plugin_type = self._args.entries.plugin_type.current
             source = plugin_name_source.value
         else:
             self._logger.info("No plugin provided or found, not showing content")
@@ -132,8 +133,8 @@ class Action(ActionBase):
             indicates there is no console output to display, so assume an issue and return 1
             along with a message to review the logs.
         """
-        self._plugin_name = self._args.plugin_name
-        self._plugin_type = self._args.plugin_type
+        self._plugin_name = self._args.entries.plugin_name.current
+        self._plugin_type = self._args.entries.plugin_type.current
         self._logger.debug("doc requested in stdout mode")
         response = self._run_runner()
         if response is None:
@@ -152,37 +153,37 @@ class Action(ActionBase):
         :returns: For mode interactive nothing or the plugin's doc. For mode stdout the
             output, errors and return code from runner.
         """
-        if isinstance(self._args.set_environment_variable, dict):
-            set_env_vars = {**self._args.set_environment_variable}
+        if isinstance(self._args.entries.set_environment_variable.current, dict):
+            set_env_vars = {**self._args.entries.set_environment_variable.current}
         else:
             set_env_vars = {}
 
-        if self._args.display_color is False or self._args.mode == "interactive":
+        if self._args.entries.display_color.current is False or self._args.entries.mode.current == "interactive":
             set_env_vars["ANSIBLE_NOCOLOR"] = "1"
 
         kwargs = {
-            "container_engine": self._args.container_engine,
-            "execution_environment_image": self._args.execution_environment_image,
-            "execution_environment": self._args.execution_environment,
-            "navigator_mode": self._args.mode,
-            "pass_environment_variable": self._args.pass_environment_variable,
+            "container_engine": self._args.entries.container_engine.current,
+            "execution_environment_image": self._args.entries.execution_environment_image.current,
+            "execution_environment": self._args.entries.execution_environment.current,
+            "navigator_mode": self._args.entries.mode.current,
+            "pass_environment_variable": self._args.entries.pass_environment_variable.current,
             "set_environment_variable": set_env_vars,
-            "private_data_dir": self._args.ansible_runner_artifact_dir,
-            "rotate_artifacts": self._args.ansible_runner_rotate_artifacts_count,
-            "timeout": self._args.ansible_runner_timeout,
+            "private_data_dir": self._args.entries.ansible_runner_artifact_dir.current,
+            "rotate_artifacts": self._args.entries.ansible_runner_rotate_artifacts_count.current,
+            "timeout": self._args.entries.ansible_runner_timeout.current,
         }
 
-        if isinstance(self._args.execution_environment_volume_mounts, list):
+        if isinstance(self._args.entries.execution_environment_volume_mounts.current, list):
             kwargs.update(
-                {"container_volume_mounts": self._args.execution_environment_volume_mounts},
+                {"container_volume_mounts": self._args.entries.execution_environment_volume_mounts.current},
             )
 
-        if isinstance(self._args.container_options, list):
-            kwargs.update({"container_options": self._args.container_options})
+        if isinstance(self._args.entries.container_options.current, list):
+            kwargs.entries.update.current({"container_options": self._args.entries.container_options.current})
 
-        if self._args.mode == "interactive":
-            if isinstance(self._args.playbook, str):
-                playbook_dir = os.path.dirname(self._args.playbook)
+        if self._args.entries.mode.current == "interactive":
+            if isinstance(self._args.entries.playbook.current, str):
+                playbook_dir = os.path.dirname(self._args.entries.playbook.current)
             else:
                 playbook_dir = os.getcwd()
             kwargs.update({"host_cwd": playbook_dir})
@@ -208,7 +209,7 @@ class Action(ActionBase):
             return plugin_doc_response
         else:
             kwargs.update({"host_cwd": os.getcwd()})
-            if self._args.execution_environment:
+            if self._args.entries.execution_environment.current:
                 ansible_doc_path = "ansible-doc"
             else:
                 exec_path = shutil.which("ansible-doc")
@@ -225,11 +226,11 @@ class Action(ActionBase):
             if self._plugin_type is not C.NOT_SET:
                 pass_through_arg.extend(["-t", self._plugin_type])
 
-            if self._args.help_doc is True:
+            if self._args.entries.help_doc.current is True:
                 pass_through_arg.append("--help")
 
-            if isinstance(self._args.cmdline, list):
-                pass_through_arg.extend(self._args.cmdline)
+            if isinstance(self._args.entries.cmdline.current, list):
+                pass_through_arg.extend(self._args.entries.cmdline.current)
 
             kwargs.update({"cmdline": pass_through_arg})
 
@@ -250,7 +251,7 @@ class Action(ActionBase):
         """
         # pylint: disable=too-many-branches
         plugin_doc = {}
-        if self._args.execution_environment:
+        if self._args.entries.execution_environment.current:
             error_key_name = "execution_environment_errors"
         else:
             error_key_name = "local_errors"
@@ -262,7 +263,7 @@ class Action(ActionBase):
                 try:
                     json_loaded = json.loads(out)
                 except json.JSONDecodeError as exc:
-                    if self._args.mode == "interactive":
+                    if self._args.entries.mode.current == "interactive":
                         self._logger.info(
                             "Parsing of ansible-doc output failed for '%s'",
                             self._plugin_name,

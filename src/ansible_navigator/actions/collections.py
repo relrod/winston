@@ -19,6 +19,7 @@ from ..action_base import ActionBase
 from ..app_public import AppPublic
 from ..configuration_subsystem import ApplicationConfiguration
 from ..configuration_subsystem import Constants
+from ..configuration_subsystem.navigator_settings import NavigatorSettings
 from ..runner import Command
 from ..steps import Step
 from ..ui_framework import CursesLine
@@ -82,7 +83,7 @@ class Action(ActionBase):
 
     KEGEX = r"^collections(\s(?P<params>.*))?$"
 
-    def __init__(self, args: ApplicationConfiguration):
+    def __init__(self, args: ApplicationConfiguration[NavigatorSettings]):
         """Initialize the ``collections`` action.
 
         :param args: The current settings for the application
@@ -125,7 +126,7 @@ class Action(ActionBase):
         self._update_args(params=params, attach_cdc=True)
 
         self._collection_cache = self._args.internals.collection_doc_cache
-        self._collection_cache_path = self._args.collection_doc_cache_path
+        self._collection_cache_path = self._args.entries.collection_doc_cache_path.current
 
         if not isinstance(self._collection_cache, KeyValueStore):
             notification = warning_notification(
@@ -196,7 +197,7 @@ class Action(ActionBase):
 
         :returns: The collections menu definition
         """
-        if self._args.execution_environment:
+        if self._args.entries.execution_environment.current:
             columns = ["__name", "__version", "__shadowed", "__type", "path"]
         else:
             columns = ["__name", "__version", "__shadowed", "path"]
@@ -296,8 +297,8 @@ class Action(ActionBase):
         # pylint: disable=too-many-locals
         # pylint: disable=too-many-statements
         """Use the runner subsystem to catalog collections."""
-        if isinstance(self._args.set_environment_variable, dict):
-            set_environment_variable = deepcopy(self._args.set_environment_variable)
+        if isinstance(self._args.entries.set_environment_variable.current, dict):
+            set_environment_variable = deepcopy(self._args.entries.set_environment_variable.current)
         else:
             set_environment_variable = {}
         set_environment_variable["ANSIBLE_NOCOLOR"] = "True"
@@ -308,7 +309,7 @@ class Action(ActionBase):
         # to inject this utils directory into the PYTHONPATH. If not, we'll just
         # use the EE's default PYTHONPATH (if it exists) and just add our path
         # at the end.
-        if self._args.execution_environment:
+        if self._args.entries.execution_environment.current:
             ee_navigator_utils_mount = "/opt/ansible_navigator_utils"
             if "PYTHONPATH" in set_environment_variable:
                 set_environment_variable["PYTHONPATH"].append(
@@ -324,27 +325,27 @@ class Action(ActionBase):
             )
 
         kwargs = {
-            "container_engine": self._args.container_engine,
-            "execution_environment_image": self._args.execution_environment_image,
-            "execution_environment": self._args.execution_environment,
+            "container_engine": self._args.entries.container_engine.current,
+            "execution_environment_image": self._args.entries.execution_environment_image.current,
+            "execution_environment": self._args.entries.execution_environment.current,
             "navigator_mode": "interactive",
-            "pass_environment_variable": self._args.pass_environment_variable,
+            "pass_environment_variable": self._args.entries.pass_environment_variable.current,
             "set_environment_variable": set_environment_variable,
-            "private_data_dir": self._args.ansible_runner_artifact_dir,
-            "rotate_artifacts": self._args.ansible_runner_rotate_artifacts_count,
-            "timeout": self._args.ansible_runner_timeout,
+            "private_data_dir": self._args.entries.ansible_runner_artifact_dir.current,
+            "rotate_artifacts": self._args.entries.ansible_runner_rotate_artifacts_count.current,
+            "timeout": self._args.entries.ansible_runner_timeout.current,
         }
 
-        if isinstance(self._args.playbook, str):
-            playbook_dir = os.path.dirname(self._args.playbook)
+        if isinstance(self._args.entries.playbook.current, str):
+            playbook_dir = os.path.dirname(self._args.entries.playbook.current)
         else:
             playbook_dir = os.getcwd()
 
-        if isinstance(self._args.execution_environment_volume_mounts, list):
-            kwargs["container_volume_mounts"] = self._args.execution_environment_volume_mounts
+        if isinstance(self._args.entries.execution_environment_volume_mounts.current, list):
+            kwargs["container_volume_mounts"] = self._args.entries.execution_environment_volume_mounts.current
 
-        if isinstance(self._args.container_options, list):
-            kwargs["container_options"] = self._args.container_options
+        if isinstance(self._args.entries.container_options.current, list):
+            kwargs["container_options"] = self._args.entries.container_options.current
 
         kwargs["host_cwd"] = playbook_dir
 
@@ -361,7 +362,7 @@ class Action(ActionBase):
 
         kwargs["cmdline"] = pass_through_arg
 
-        if self._args.execution_environment:
+        if self._args.entries.execution_environment.current:
             self._logger.debug("running collections command with execution environment enabled")
             python_exec_path = "python3"
             utils_lib = os.path.join(
@@ -448,7 +449,7 @@ class Action(ActionBase):
             collection["__name"] = collection["known_as"]
             collection["__version"] = collection["collection_info"].get("version", "missing")
             collection["__shadowed"] = bool(collection["hidden_by"])
-            if self._args.execution_environment:
+            if self._args.entries.execution_environment.current:
                 if collection["path"].startswith(self._adjacent_collection_dir):
                     collection["__type"] = "bind_mount"
                 elif collection["path"].startswith(os.path.dirname(self._adjacent_collection_dir)):
@@ -475,7 +476,7 @@ class Action(ActionBase):
             self._logger.debug("%s: %s", stat, value)
 
         if not parsed["collections"]:
-            env = "execution" if self._args.execution_environment else "local"
+            env = "execution" if self._args.entries.execution_environment.current else "local"
             error = f"No collections found in {env} environment, searched in "
             error += parsed["collection_scan_paths"]
             self._logger.warning(error)
@@ -489,7 +490,7 @@ class Action(ActionBase):
         for path in self._collection_scanned_paths:
             if path.startswith(self._args.internals.share_directory):
                 continue
-            if self._args.execution_environment:
+            if self._args.entries.execution_environment.current:
                 if path.startswith(self._adjacent_collection_dir):
                     paths.append(f"- {path} (bind_mount)")
                 else:

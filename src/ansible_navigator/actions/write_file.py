@@ -8,6 +8,7 @@ from pathlib import Path
 from ansible_navigator.ui_framework.content_defs import ContentView
 from ..app_public import AppPublic
 from ..configuration_subsystem import ApplicationConfiguration
+from ..configuration_subsystem.navigator_settings import NavigatorSettings
 from ..ui_framework import Interaction
 from ..utils.functions import remove_dbl_un
 from ..utils.serialize import SerializationFormat
@@ -21,7 +22,7 @@ class Action:
 
     KEGEX = r"^w(?:rite)?(?P<force>!)?\s+(?P<append>>>)?\s*(?P<filename>.+)$"
 
-    def __init__(self, args: ApplicationConfiguration):
+    def __init__(self, args: ApplicationConfiguration[NavigatorSettings]):
         """Initialize the ``:write`` action.
 
         :param args: The current settings for the application

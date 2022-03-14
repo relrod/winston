@@ -4,6 +4,7 @@ import os
 from ..action_base import ActionBase
 from ..app_public import AppPublic
 from ..configuration_subsystem import ApplicationConfiguration
+from ..configuration_subsystem.navigator_settings import NavigatorSettings
 from ..ui_framework import Interaction
 from . import _actions as actions
 
@@ -19,7 +20,7 @@ class Action(ActionBase):
 
     KEGEX = r"^welcome$"
 
-    def __init__(self, args: ApplicationConfiguration):
+    def __init__(self, args: ApplicationConfiguration[NavigatorSettings]):
         """Initialize the ``:welcome`` action.
 
         :param args: The current settings for the application

@@ -3,6 +3,7 @@
 from ..action_base import ActionBase
 from ..app_public import AppPublic
 from ..configuration_subsystem import ApplicationConfiguration
+from ..configuration_subsystem.navigator_settings import NavigatorSettings
 from ..ui_framework import Interaction
 from ..ui_framework import dict_to_form
 from ..ui_framework import form_to_dict
@@ -35,7 +36,7 @@ class Action(ActionBase):
 
     KEGEX = r"^sample_notification$"
 
-    def __init__(self, args: ApplicationConfiguration):
+    def __init__(self, args: ApplicationConfiguration[NavigatorSettings]):
         """Initialize the ``:sample_notification`` action.
 
         :param args: The current settings for the application

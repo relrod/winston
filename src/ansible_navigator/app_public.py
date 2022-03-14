@@ -7,6 +7,7 @@ from typing import List
 from typing import NamedTuple
 
 from .configuration_subsystem import ApplicationConfiguration
+from .configuration_subsystem.navigator_settings import NavigatorSettings
 from .steps import Steps
 
 
@@ -16,7 +17,7 @@ class AppPublic(NamedTuple):
     This will be shared with other actions and is immutable.
     """
 
-    args: ApplicationConfiguration
+    args: ApplicationConfiguration[NavigatorSettings]
     name: str
     rerun: Callable
     stdout: List[str]

@@ -16,6 +16,7 @@ from ..action_base import ActionBase
 from ..action_defs import RunStdoutReturn
 from ..app_public import AppPublic
 from ..configuration_subsystem import ApplicationConfiguration
+from ..configuration_subsystem.navigator_settings import NavigatorSettings
 from ..runner import AnsibleInventory
 from ..runner import Command
 from ..steps import Step
@@ -106,7 +107,7 @@ class Action(ActionBase):
 
     KEGEX = r"^i(?:nventory)?(\s(?P<params>.*))?$"
 
-    def __init__(self, args: ApplicationConfiguration):
+    def __init__(self, args: ApplicationConfiguration[NavigatorSettings]):
         """Initialize the ``:images`` action.
 
         :param args: The current settings for the application
@@ -151,8 +152,8 @@ class Action(ActionBase):
 
         :returns: The columns to show
         """
-        if isinstance(self._args.inventory_column, list):
-            return self._args.inventory_column
+        if isinstance(self._args.entries.inventory_column.current, list):
+            return self._args.entries.inventory_column.current
         return []
 
     def _set_inventories_mtime(self) -> None:
@@ -248,8 +249,8 @@ class Action(ActionBase):
             along with a message to review the logs.
         """
         self._logger.debug("inventory requested in stdout mode")
-        if hasattr(self._args, "inventory") and self._args.inventory:
-            self._inventories = self._args.inventory
+        if hasattr(self._args, "inventory") and self._args.entries.inventory.current:
+            self._inventories = self._args.entries.inventory.current
         self._collect_inventory_details()
         if self._runner.status == "failed":
             return RunStdoutReturn(message="Please review the log for errors.", return_code=1)
@@ -439,8 +440,8 @@ class Action(ActionBase):
             [self._name] + shlex.split(self._interaction.action.match.groupdict()["params"] or ""),
         )
 
-        if isinstance(self._args.inventory, list):
-            inventories = self._args.inventory
+        if isinstance(self._args.entries.inventory.current, list):
+            inventories = self._args.entries.inventory.current
             inventories_valid = not self._inventory_error
         else:
             inventories = ["", "", ""]
@@ -530,7 +531,7 @@ class Action(ActionBase):
         :raises RuntimeError: When the ``ansible-inventory`` command cannot be found for mode stdout
         :returns: The output, errors and return code from runner
         """
-        if self._args.execution_environment:
+        if self._args.entries.execution_environment.current:
             ansible_inventory_path = "ansible-inventory"
         else:
             exec_path = shutil.which("ansible-inventory")
@@ -542,11 +543,11 @@ class Action(ActionBase):
             ansible_inventory_path = exec_path
 
         pass_through_arg = []
-        if self._args.help_inventory is True:
+        if self._args.entries.help_inventory.current is True:
             pass_through_arg.append("--help")
 
-        if isinstance(self._args.cmdline, list):
-            pass_through_arg.extend(self._args.cmdline)
+        if isinstance(self._args.entries.cmdline.current, list):
+            pass_through_arg.extend(self._args.entries.cmdline.current)
 
         kwargs.update({"cmdline": pass_through_arg, "inventory": self._inventories})
 
@@ -562,36 +563,36 @@ class Action(ActionBase):
         :returns: For mode interactive nothing. For mode stdout, the output, errors and return
             code from runner
         """
-        if isinstance(self._args.set_environment_variable, dict):
-            set_env_vars = {**self._args.set_environment_variable}
+        if isinstance(self._args.entries.set_environment_variable.current, dict):
+            set_env_vars = {**self._args.entries.set_environment_variable.current}
         else:
             set_env_vars = {}
 
-        if self._args.display_color is False:
+        if self._args.entries.display_color.current is False:
             set_env_vars["ANSIBLE_NOCOLOR"] = "1"
 
         kwargs = {
-            "container_engine": self._args.container_engine,
+            "container_engine": self._args.entries.container_engine.current,
             "host_cwd": os.getcwd(),
-            "execution_environment_image": self._args.execution_environment_image,
-            "execution_environment": self._args.execution_environment,
-            "navigator_mode": self._args.mode,
-            "pass_environment_variable": self._args.pass_environment_variable,
+            "execution_environment_image": self._args.entries.execution_environment_image.current,
+            "execution_environment": self._args.entries.execution_environment.current,
+            "navigator_mode": self._args.entries.mode.current,
+            "pass_environment_variable": self._args.entries.pass_environment_variable.current,
             "set_environment_variable": set_env_vars,
-            "private_data_dir": self._args.ansible_runner_artifact_dir,
-            "rotate_artifacts": self._args.ansible_runner_rotate_artifacts_count,
-            "timeout": self._args.ansible_runner_timeout,
+            "private_data_dir": self._args.entries.ansible_runner_artifact_dir.current,
+            "rotate_artifacts": self._args.entries.ansible_runner_rotate_artifacts_count.current,
+            "timeout": self._args.entries.ansible_runner_timeout.current,
         }
 
-        if isinstance(self._args.execution_environment_volume_mounts, list):
+        if isinstance(self._args.entries.execution_environment_volume_mounts.current, list):
             kwargs.update(
-                {"container_volume_mounts": self._args.execution_environment_volume_mounts},
+                {"container_volume_mounts": self._args.entries.execution_environment_volume_mounts.current},
             )
 
-        if isinstance(self._args.container_options, list):
-            kwargs.update({"container_options": self._args.container_options})
+        if isinstance(self._args.entries.container_options.current, list):
+            kwargs.update({"container_options": self._args.entries.container_options.current})
 
-        if self._args.mode == "interactive":
+        if self._args.entries.mode.current == "interactive":
             self._collect_inventory_details_interactive(kwargs)
         else:
             return self._collect_inventory_details_automated(kwargs)
